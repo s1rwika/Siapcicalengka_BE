@@ -19,13 +19,17 @@ const User = sequelize.define('users', {
 });
 
 // 3. Model Kegiatan
+// 3. Model Kegiatan
 const Kegiatan = sequelize.define('kegiatan', {
     judul: { type: DataTypes.STRING, allowNull: false },
     deskripsi: { type: DataTypes.TEXT },
     tanggal: { type: DataTypes.DATEONLY, allowNull: false },
     dibuat_oleh: { type: DataTypes.INTEGER },
     status: { type: DataTypes.ENUM('menunggu', 'disetujui', 'ditolak'), defaultValue: 'menunggu' }
-}, { timestamps: false });
+}, { 
+    timestamps: false, 
+    freezeTableName: true  // <--- TAMBAHKAN BARIS INI
+});
 
 // 4. Model Kegiatan Detail
 const KegiatanDetail = sequelize.define('kegiatan_detail', {

@@ -1,26 +1,38 @@
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
-const router = require('./routes');
-const db = require('./models');
-require('dotenv').config();
+const dotenv = require('dotenv');
+
+// Import Routes
+const authRoutes = require('./routes/authRoutes');
+const kegiatanRoutes = require('./routes/kegiatanRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+
+dotenv.config();
 
 const app = express();
 
+// Middleware
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json()); // Untuk membaca JSON body
+app.use(express.urlencoded({ extended: true }));
 
-// Gunakan Routes
-app.use('/api', router);
+// Default Route
+app.get('/', (req, res) => {
+    res.send('API SIAP Cicalengka Running...');
+});
 
-// Test Database Connection & Server Start
-db.sequelize.authenticate()
-    .then(() => {
-        console.log('Database connected...');
-        // db.sequelize.sync(); // Hapus komentar ini jika ingin auto-create table (tapi kamu sudah punya SQL dump)
-        app.listen(process.env.PORT, () => {
-            console.log(`Server running on port ${process.env.PORT}`);
-        });
-    })
-    .catch(err => console.log('Error: ' + err));
+// Register Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/kegiatan', kegiatanRoutes);
+app.use('/api/admin', adminRoutes);
+
+// Error Handling Global
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send('Terjadi kesalahan pada server!');
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Server berjalan di port ${PORT}`);
+});

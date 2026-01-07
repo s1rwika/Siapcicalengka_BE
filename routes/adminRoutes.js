@@ -2,38 +2,74 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 
-// Import Controllers
-const adminController = require('../controllers/adminController'); // Approval Dokter
-const adminFeaturesController = require('../controllers/adminFeaturesController'); // Laporan & Pasien
-const kegiatanController = require('../controllers/kegiatanController'); // Create Kegiatan
+// Controllers
+const adminController = require('../controllers/adminController');
+const adminFeatureController = require('../controllers/adminFeaturesController');
+const kegiatanController = require('../controllers/kegiatanController');
 
-// Middleware & Upload
-const verifyToken = require('../middleware/authMiddleware');
+// Middleware
+const { verifyToken } = require('../middleware/authMiddleware');
 const checkRole = require('../middleware/roleMiddleware');
+
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Middleware: Hanya Admin/Superadmin
-const isAdmin = [verifyToken, checkRole(['admin', 'superadmin'])];
+// Admin & Superadmin only
+const isAdmin = [
+  verifyToken,
+  checkRole(['admin', 'superadmin'])
+];
 
-// --- 1. MANAJEMEN DOKTER (Approval) ---
-router.get('/pending-doctors', isAdmin, adminController.getPendingDoctors);
-router.post('/approve-doctor/:approvalId', isAdmin, adminController.handleDoctorApproval);
+// --- DOKTER ---
+router.get(
+  '/pending-doctors',
+  isAdmin,
+  adminController.getPendingDoctors
+);
 
-// --- 2. MANAJEMEN KEGIATAN ---
-// Admin membuat kegiatan baru
-router.post('/kegiatan', isAdmin, kegiatanController.createKegiatan);
-// Admin menyetujui/edit kegiatan (jika ada flow approval kegiatan)
-router.put('/kegiatan/approve/:id', isAdmin, kegiatanController.approveKegiatan);
+router.post(
+  '/approve-doctor/:approvalId',
+  isAdmin,
+  adminController.handleDoctorApproval
+);
 
-// --- 3. LAPORAN KEGIATAN (Dengan Gambar) ---
-// Upload Laporan
-router.post('/laporan', isAdmin, upload.single('img'), adminFeaturesController.createLaporan);
-// Lihat Daftar Laporan (untuk dicetak)
-router.get('/laporan', isAdmin, adminFeaturesController.getLaporan);
-// Download Gambar Asli Laporan
-router.get('/laporan/:id/download', isAdmin, adminFeaturesController.downloadLaporanImage);
+// --- KEGIATAN ---
+router.post(
+  '/kegiatan',
+  isAdmin,
+  kegiatanController.createKegiatan
+);
 
-// --- 4. RIWAYAT PASIEN (Navigasi) ---
-router.get('/pasien/riwayat', isAdmin, adminFeaturesController.getAllRiwayatPasien);
+router.put(
+  '/kegiatan/approve/:id',
+  isAdmin,
+  kegiatanController.approveKegiatan
+);
+
+// --- LAPORAN ---
+router.post(
+  '/laporan',
+  isAdmin,
+  upload.single('img'),
+  adminFeatureController.createLaporan
+);
+
+router.get(
+  '/laporan',
+  isAdmin,
+  adminFeatureController.getLaporan
+);
+
+router.get(
+  '/laporan/:id/download',
+  isAdmin,
+  adminFeatureController.downloadLaporanImage
+);
+
+// --- RIWAYAT PASIEN ---
+router.get(
+  '/pasien/riwayat',
+  isAdmin,
+  adminFeatureController.getAllRiwayatPasien
+);
 
 module.exports = router;

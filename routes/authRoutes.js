@@ -1,18 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const verifyToken = require('../middleware/authMiddleware');
+const { verifyToken } = require('../middleware/authMiddleware');
 
-// Setup Multer (Simpan di memori sementara sebelum masuk database)
+// Setup Multer (BLOB / foto)
 const multer = require('multer');
-const storage = multer.memoryStorage(); // PENTING: Gunakan memoryStorage untuk BLOB
-const upload = multer({ storage: storage });
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
-// Tambahkan upload.single('img') -> 'img' adalah nama field di form frontend
+// Register & Login
 router.post('/register', upload.single('img'), authController.register);
 router.post('/login', authController.login);
 
-// Route baru untuk ganti foto (Butuh Login/Token)
-router.put('/update-photo', verifyToken, upload.single('img'), authController.updateProfilePhoto);
+// Update foto profil (HARUS login)
+router.put(
+  '/update-photo',
+  verifyToken,
+  upload.single('img'),
+  authController.updateProfilePhoto
+);
 
 module.exports = router;

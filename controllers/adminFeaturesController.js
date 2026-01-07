@@ -58,3 +58,29 @@ exports.getAllRiwayatPasien = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+// Download gambar laporan
+exports.downloadLaporanImage = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const [rows] = await db.query(
+            'SELECT img, nama_file FROM laporan WHERE id = ?',
+            [id]
+        );
+
+        if (rows.length === 0 || !rows[0].img) {
+            return res.status(404).json({ message: 'Gambar tidak ditemukan' });
+        }
+
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename="${rows[0].nama_file || 'laporan.jpg'}"`
+        );
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.send(rows[0].img);
+
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};

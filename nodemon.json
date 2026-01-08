@@ -1,0 +1,5 @@
+{
+  "watch": ["app.js", "routes", "controllers", "models"],
+  "ignore": ["uploads", "logs", "*.log"],
+  "ext": "js,json"
+}

@@ -1,59 +1,97 @@
 const db = require('../config/db');
 
-// 1. Ambil daftar dokter yang menunggu persetujuan
-exports.getPendingDoctors = async (req, res) => {
+// --- MANAJEMEN KEGIATAN ---
+exports.createKegiatan = async (req, res) => {
+    const { judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, jam_mulai, jam_selesai } = req.body;
+    
+    // Generate ID Kegiatan Unik (contoh: KG-timestamp)
+    const idKegiatan = `KG-${Date.now()}`; 
+
     try {
-        // Kita join tabel role_approval dengan users untuk dapat nama dokter
-        const [rows] = await db.query(`
-            SELECT ra.id, ra.user_id, ra.status, ra.tanggal, u.full_name, u.username, u.img 
-            FROM role_approval ra
-            JOIN users u ON ra.user_id = u.id
-            WHERE ra.status = 'menunggu' AND ra.role = 'dokter'
-        `);
-
-        // Convert BLOB image ke Base64 untuk preview foto dokter
-        const requests = rows.map(req => ({
-            ...req,
-            img: req.img ? `data:image/jpeg;base64,${req.img.toString('base64')}` : null
-        }));
-
-        res.json(requests);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+        await db.query(
+            'INSERT INTO kegiatan (id, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, user_id, jam_mulai, jam_selesai, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [idKegiatan, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, req.user.id, jam_mulai, jam_selesai, 'menunggu']
+        );
+        res.status(201).json({ message: 'Kegiatan berhasil dibuat, menunggu approval', kegiatanId: idKegiatan });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
-// 2. Fungsi Approve / Reject
-exports.handleDoctorApproval = async (req, res) => {
-    const { approvalId } = req.params; // ID dari tabel role_approval
-    const { action } = req.body; // 'approve' atau 'reject'
+exports.updateKegiatan = async (req, res) => {
+    const { id } = req.params;
+    const { judul, deskripsi, tanggal, lokasi } = req.body;
+    try {
+        await db.query(
+            'UPDATE kegiatan SET judul=?, deskripsi=?, tanggal=?, lokasi=? WHERE id=?',
+            [judul, deskripsi, tanggal, lokasi, id]
+        );
+        res.json({ message: 'Kegiatan berhasil diupdate' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// --- LAPORAN KEGIATAN ---
+exports.createLaporan = async (req, res) => {
+    const { kegiatan_id, nama_file, judul_laporan, detail_kegiatan } = req.body;
+    // img bisa ditangani middleware upload seperti Multer, di sini kita simpan placeholder/path
+    const imgPlaceholder = req.file ? req.file.buffer : null; // Jika menggunakan multer memory storage
 
     try {
-        // Ambil data request dulu
-        const [rows] = await db.query('SELECT * FROM role_approval WHERE id = ?', [approvalId]);
-        if (rows.length === 0) return res.status(404).json({ message: 'Request tidak ditemukan' });
+        await db.query(
+            'INSERT INTO laporan (kegiatan_id, nama_file, judul_laporan, detail_kegiatan, img) VALUES (?, ?, ?, ?, ?)',
+            [kegiatan_id, nama_file, judul_laporan, detail_kegiatan, imgPlaceholder || '']
+        );
+        res.status(201).json({ message: 'Detail laporan berhasil ditambahkan' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-        const requestData = rows[0];
+exports.getCetakLaporanData = async (req, res) => {
+    const { kegiatan_id } = req.params;
+    try {
+        // Mengambil data gabungan untuk dicetak
+        const [data] = await db.query(`
+            SELECT k.judul, k.tanggal, k.lokasi, l.judul_laporan, l.detail_kegiatan, l.nama_file
+            FROM kegiatan k
+            JOIN laporan l ON k.id = l.kegiatan_id
+            WHERE k.id = ?
+        `, [kegiatan_id]);
 
-        if (action === 'approve') {
-            // A. Update status di role_approval
-            await db.query('UPDATE role_approval SET status = "disetujui" WHERE id = ?', [approvalId]);
-            
-            // B. Update role user di tabel users menjadi 'dokter'
-            await db.query('UPDATE users SET role = "dokter" WHERE id = ?', [requestData.user_id]);
+        if (data.length === 0) return res.status(404).json({ message: 'Data laporan tidak ditemukan' });
 
-            res.json({ message: 'Dokter berhasil disetujui. Akun kini aktif.' });
+        res.json(data[0]); // Frontend akan menggunakan data ini untuk window.print() atau generate PDF
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-        } else if (action === 'reject') {
-            // C. Kalau ditolak, cuma update status approval aja
-            await db.query('UPDATE role_approval SET status = "ditolak" WHERE id = ?', [approvalId]);
-            res.json({ message: 'Permintaan dokter ditolak.' });
-        
-        } else {
-            res.status(400).json({ message: 'Action tidak valid' });
-        }
+// --- RIWAYAT PASIEN ---
+exports.getRiwayatPasien = async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT rp.*, u.full_name as nama_dokter 
+            FROM riwayat_pasien rp
+            LEFT JOIN users u ON rp.dokter_id = u.id
+            ORDER BY rp.tanggal DESC
+        `);
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+exports.addRiwayatPasien = async (req, res) => {
+    const { pasien_nama, dokter_id, diagnosis, tindakan, tanggal } = req.body;
+    try {
+        await db.query(
+            'INSERT INTO riwayat_pasien (pasien_nama, dokter_id, diagnosis, tindakan, tanggal) VALUES (?, ?, ?, ?, ?)',
+            [pasien_nama, dokter_id, diagnosis, tindakan, tanggal]
+        );
+        res.status(201).json({ message: 'Riwayat pasien berhasil ditambahkan' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };

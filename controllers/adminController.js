@@ -2,18 +2,20 @@ const db = require('../config/db');
 
 // --- MANAJEMEN KEGIATAN ---
 exports.createKegiatan = async (req, res) => {
-    const { judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, jam_mulai, jam_selesai } = req.body;
+    // AMBIL 'id' DARI FRONTEND (Agar sesuai PY-001, VK-001, dll)
+    const { id, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, jam_mulai, jam_selesai } = req.body;
     
-    // Generate ID Kegiatan Unik (contoh: KG-timestamp)
-    const idKegiatan = `KG-${Date.now()}`; 
-
     try {
+        // Query Insert ke Database
         await db.query(
             'INSERT INTO kegiatan (id, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, user_id, jam_mulai, jam_selesai, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [idKegiatan, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, req.user.id, jam_mulai, jam_selesai, 'menunggu']
+            [id, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, req.user.id, jam_mulai, jam_selesai, 'menunggu']
         );
-        res.status(201).json({ message: 'Kegiatan berhasil dibuat, menunggu approval', kegiatanId: idKegiatan });
+        
+        // Response sukses
+        res.status(201).json({ message: 'Kegiatan berhasil dibuat' });
     } catch (error) {
+        // Jika ID kembar, database akan error disini
         res.status(500).json({ error: error.message });
     }
 };
@@ -27,6 +29,22 @@ exports.updateKegiatan = async (req, res) => {
             [judul, deskripsi, tanggal, lokasi, id]
         );
         res.json({ message: 'Kegiatan berhasil diupdate' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Endpoint khusus Admin: Melihat SEMUA data tanpa filter status
+exports.getAllKegiatanAdmin = async (req, res) => {
+    try {
+        // Gunakan LEFT JOIN agar jika jenis_kegiatan terhapus, data kegiatan tetap muncul
+        const [rows] = await db.query(`
+            SELECT k.*, jk.jenis_kegiatan 
+            FROM kegiatan k 
+            LEFT JOIN jenis_kegiatan jk ON k.jenis_kegiatan_id = jk.id
+            ORDER BY k.tanggal DESC
+        `);
+        res.json(rows);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

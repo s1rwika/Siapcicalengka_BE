@@ -77,6 +77,14 @@ router.put(
     adminController.updateKegiatan
 );
 
+// GET Data Kegiatan untuk Admin (Semua Status)
+router.get(
+    '/admin/kegiatan', 
+    verifyToken, 
+    authorize(['admin', 'superadmin']), 
+    adminController.getAllKegiatanAdmin
+);
+
 // --- Laporan & Cetak ---
 // Jika nanti menggunakan upload file gambar, tambahkan middleware upload.single('file') disini
 router.post(

@@ -2,35 +2,101 @@ const db = require('../config/db');
 
 // --- MANAJEMEN KEGIATAN ---
 exports.createKegiatan = async (req, res) => {
-    const { judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, jam_mulai, jam_selesai } = req.body;
-    
-    // Generate ID Kegiatan Unik (contoh: KG-timestamp)
-    const idKegiatan = `KG-${Date.now()}`; 
+  const {
+    id,
+    judul,
+    deskripsi,
+    jenis_kegiatan_id,
+    tanggal,
+    lokasi,
+    jam_mulai,
+    jam_selesai
+  } = req.body;
 
-    try {
-        await db.query(
-            'INSERT INTO kegiatan (id, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, user_id, jam_mulai, jam_selesai, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [idKegiatan, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, req.user.id, jam_mulai, jam_selesai, 'menunggu']
-        );
-        res.status(201).json({ message: 'Kegiatan berhasil dibuat, menunggu approval', kegiatanId: idKegiatan });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+  // VALIDASI WAJIB
+  if (!id) {
+    return res.status(400).json({
+      message: 'ID kegiatan wajib diisi'
+    });
+  }
+
+  try {
+    await db.query(
+      `INSERT INTO kegiatan
+      (id, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, user_id, jam_mulai, jam_selesai, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        judul,
+        deskripsi,
+        jenis_kegiatan_id,
+        tanggal,
+        lokasi,
+        req.user.id,
+        jam_mulai,
+        jam_selesai,
+        'menunggu'
+      ]
+    );
+
+    res.status(201).json({
+      message: 'Kegiatan berhasil dibuat',
+      id
+    });
+
+  } catch (error) {
+    // ERROR KHUSUS DUPLICATE
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        message: `ID kegiatan ${id} sudah digunakan`
+      });
     }
+
+    res.status(500).json({ error: error.message });
+  }
 };
 
+// Fix for getAllLokasi - use async/await instead of callback
+exports.getAllLokasi = async (req, res) => {
+  try {
+    const sql = 'SELECT id, nama AS nama_lokasi FROM lokasi ORDER BY nama ASC';
+    const [results] = await db.query(sql); // Use await, not callback
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Also fix getAllKegiatanAdmin (if it exists)
+exports.getAllKegiatanAdmin = async (req, res) => {
+  try {
+    const sql = 'SELECT * FROM kegiatan ORDER BY created_at DESC';
+    const [results] = await db.query(sql);
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// And updateKegiatan
 exports.updateKegiatan = async (req, res) => {
+  try {
     const { id } = req.params;
-    const { judul, deskripsi, tanggal, lokasi } = req.body;
-    try {
-        await db.query(
-            'UPDATE kegiatan SET judul=?, deskripsi=?, tanggal=?, lokasi=? WHERE id=?',
-            [judul, deskripsi, tanggal, lokasi, id]
-        );
-        res.json({ message: 'Kegiatan berhasil diupdate' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    const { nama_kegiatan, lokasi_id, tanggal, waktu } = req.body;
+    
+    const sql = 'UPDATE kegiatan SET nama_kegiatan = ?, lokasi_id = ?, tanggal = ?, waktu = ? WHERE id = ?';
+    const [result] = await db.query(sql, [nama_kegiatan, lokasi_id, tanggal, waktu, id]);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Kegiatan tidak ditemukan' });
     }
+    
+    res.json({ message: 'Kegiatan berhasil diperbarui' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
+
 
 // --- LAPORAN KEGIATAN ---
 exports.createLaporan = async (req, res) => {
@@ -66,6 +132,14 @@ exports.getCetakLaporanData = async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+};
+
+exports.getAllLokasi = (req, res) => {
+  const sql = 'SELECT id, nama FROM lokasi ORDER BY nama ASC';
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ message: err.message });
+    res.json(results);
+  });
 };
 
 // --- RIWAYAT PASIEN ---

@@ -11,7 +11,7 @@ const userController = require('../controllers/userController');
 const dokterController = require('../controllers/dokterController');
 const adminController = require('../controllers/adminController');
 const superadminController = require('../controllers/superadminController');
-
+const poliController = require('../controllers/poliController')
 // =========================================================================
 // 1. AUTHENTICATION (Semua User)
 // =========================================================================
@@ -69,6 +69,20 @@ router.post(
     authorize(['admin', 'superadmin']), 
     adminController.createKegiatan
 );
+router.get(
+  '/admin/kegiatan',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.getAllKegiatanAdmin
+);
+
+router.get(
+  '/admin/lokasi',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.getAllLokasi
+);
+
 
 router.put(
     '/admin/kegiatan/:id', 
@@ -139,5 +153,7 @@ router.put(
     authorize(['superadmin']), 
     superadminController.approveRole
 );
+
+router.get('/poli', poliController.getAllPoli)
 
 module.exports = router;

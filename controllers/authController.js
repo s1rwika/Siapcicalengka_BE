@@ -4,22 +4,27 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 exports.register = async (req, res) => {
-    const { username, password, full_name, role } = req.body;
-    
-    // Validasi role agar sesuai enum database
-    const validRoles = ['user', 'dokter', 'admin', 'superadmin'];
-    const userRole = validRoles.includes(role) ? role : 'user';
+    const { username, password, full_name } = req.body;
+
+    if (!username || !password || !full_name) {
+        return res.status(400).json({ message: 'Data tidak lengkap' });
+    }
 
     try {
-        // Cek username duplikat
-        const [existingUser] = await db.query('SELECT username FROM users WHERE username = ?', [username]);
-        if (existingUser.length > 0) return res.status(400).json({ message: 'Username sudah digunakan' });
+        const [existingUser] = await db.query(
+            'SELECT username FROM users WHERE username = ?',
+            [username]
+        );
+
+        if (existingUser.length > 0) {
+            return res.status(400).json({ message: 'Username sudah digunakan' });
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        
+
         await db.query(
             'INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)',
-            [username, hashedPassword, full_name, userRole]
+            [username, hashedPassword, full_name, 'user'] // 🔒 PAKSA user
         );
 
         res.status(201).json({ message: 'Registrasi berhasil' });

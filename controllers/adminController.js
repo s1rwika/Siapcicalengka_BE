@@ -70,7 +70,7 @@ exports.getAllLokasi = async (req, res) => {
 // Also fix getAllKegiatanAdmin (if it exists)
 exports.getAllKegiatanAdmin = async (req, res) => {
   try {
-    const sql = 'SELECT * FROM kegiatan ORDER BY created_at DESC';
+    const sql = 'SELECT * FROM kegiatan ORDER BY tanggal DESC';
     const [results] = await db.query(sql);
     res.json(results);
   } catch (err) {

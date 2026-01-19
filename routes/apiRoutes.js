@@ -11,7 +11,8 @@ const userController = require('../controllers/userController');
 const dokterController = require('../controllers/dokterController');
 const adminController = require('../controllers/adminController');
 const superadminController = require('../controllers/superadminController');
-const poliController = require('../controllers/poliController')
+const poliController = require('../controllers/poliController');
+const lokasiController = require('../controllers/lokasiController');
 // =========================================================================
 // 1. AUTHENTICATION (Semua User)
 // =========================================================================
@@ -75,14 +76,6 @@ router.get(
   authorize(['admin', 'superadmin']),
   adminController.getAllKegiatanAdmin
 );
-
-router.get(
-  '/admin/lokasi',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  adminController.getAllLokasi
-);
-
 
 router.put(
     '/admin/kegiatan/:id', 
@@ -163,5 +156,22 @@ router.put(
 );
 
 router.get('/poli', poliController.getAllPoli)
+
+// =========================================================================
+// DATA MASTER: LOKASI
+// =========================================================================
+
+// 1. GET LOKASI
+// Akses: Public (Siapa saja boleh lihat daftar lokasi untuk dropdown)
+router.get('/lokasi', lokasiController.getAllLokasi);
+
+// 2. TAMBAH LOKASI
+// Akses: Admin DAN Superadmin
+router.post(
+    '/admin/lokasi', 
+    verifyToken, 
+    authorize(['admin', 'superadmin']), // <--- DUA ROLE INI DIIZINKAN
+    lokasiController.addLokasi
+);
 
 module.exports = router;

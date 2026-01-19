@@ -1,6 +1,8 @@
 const db = require('../config/db');
 
 // --- MANAJEMEN KEGIATAN ---
+
+// 1. CREATE KEGIATAN
 exports.createKegiatan = async (req, res) => {
   const {
     id,
@@ -8,7 +10,7 @@ exports.createKegiatan = async (req, res) => {
     deskripsi,
     jenis_kegiatan_id,
     tanggal,
-    lokasi,
+    lokasi_id, // UBAH: Frontend harus kirim ID (angka), bukan nama lokasi
     jam_mulai,
     jam_selesai
   } = req.body;
@@ -16,11 +18,12 @@ exports.createKegiatan = async (req, res) => {
   // VALIDASI WAJIB
   if (!id) {
     return res.status(400).json({
-      message: 'ID kegiatan wajib diisi'
+      message: 'ID kegiatan wajib diisi (Format contoh: PY-001)'
     });
   }
 
   try {
+    // Perhatikan: Kolom di DB bernama 'lokasi', tapi isinya harus ID.
     await db.query(
       `INSERT INTO kegiatan
       (id, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, user_id, jam_mulai, jam_selesai, status)
@@ -31,7 +34,7 @@ exports.createKegiatan = async (req, res) => {
         deskripsi,
         jenis_kegiatan_id,
         tanggal,
-        lokasi,
+        lokasi_id, // Masukkan ID lokasi ke kolom 'lokasi'
         req.user.id,
         jam_mulai,
         jam_selesai,
@@ -45,32 +48,29 @@ exports.createKegiatan = async (req, res) => {
     });
 
   } catch (error) {
-    // ERROR KHUSUS DUPLICATE
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({
         message: `ID kegiatan ${id} sudah digunakan`
       });
     }
-
     res.status(500).json({ error: error.message });
   }
 };
 
-// Fix for getAllLokasi - use async/await instead of callback
-exports.getAllLokasi = async (req, res) => {
-  try {
-    const sql = 'SELECT id, nama AS nama_lokasi FROM lokasi ORDER BY nama ASC';
-    const [results] = await db.query(sql); // Use await, not callback
-    res.json(results);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-// Also fix getAllKegiatanAdmin (if it exists)
+// 2. GET ALL KEGIATAN (ADMIN)
 exports.getAllKegiatanAdmin = async (req, res) => {
   try {
-    const sql = 'SELECT * FROM kegiatan ORDER BY tanggal DESC';
+    // Kita JOIN supaya Admin melihat "Nama Lokasi", bukan cuma "Angka ID"
+    const sql = `
+        SELECT 
+            k.*, 
+            jk.jenis_kegiatan,
+            l.nama_lokasi 
+        FROM kegiatan k
+        LEFT JOIN jenis_kegiatan jk ON k.jenis_kegiatan_id = jk.id
+        LEFT JOIN lokasi l ON k.lokasi = l.id
+        ORDER BY k.tanggal DESC
+    `;
     const [results] = await db.query(sql);
     res.json(results);
   } catch (err) {
@@ -78,14 +78,20 @@ exports.getAllKegiatanAdmin = async (req, res) => {
   }
 };
 
-// And updateKegiatan
+// 3. UPDATE KEGIATAN
 exports.updateKegiatan = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nama_kegiatan, lokasi_id, tanggal, waktu } = req.body;
+    // PERBAIKAN: Gunakan nama kolom yang benar (sama seperti create)
+    const { judul, deskripsi, jenis_kegiatan_id, lokasi_id, tanggal, jam_mulai, jam_selesai } = req.body;
     
-    const sql = 'UPDATE kegiatan SET nama_kegiatan = ?, lokasi_id = ?, tanggal = ?, waktu = ? WHERE id = ?';
-    const [result] = await db.query(sql, [nama_kegiatan, lokasi_id, tanggal, waktu, id]);
+    // Perhatikan: kolom di DB adalah 'lokasi', kita isi dengan 'lokasi_id'
+    const sql = `
+        UPDATE kegiatan 
+        SET judul = ?, deskripsi = ?, jenis_kegiatan_id = ?, lokasi = ?, tanggal = ?, jam_mulai = ?, jam_selesai = ? 
+        WHERE id = ?`;
+        
+    const [result] = await db.query(sql, [judul, deskripsi, jenis_kegiatan_id, lokasi_id, tanggal, jam_mulai, jam_selesai, id]);
     
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Kegiatan tidak ditemukan' });
@@ -97,12 +103,25 @@ exports.updateKegiatan = async (req, res) => {
   }
 };
 
+// --- DATA MASTER: LOKASI ---
+
+// 4. GET ALL LOKASI (Hanya satu fungsi saja, jangan duplikat)
+exports.getAllLokasi = async (req, res) => {
+  try {
+    // Pastikan nama kolom di tabel lokasi Anda benar (misal: nama_lokasi)
+    const sql = 'SELECT * FROM lokasi ORDER BY nama_lokasi ASC'; 
+    const [results] = await db.query(sql);
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 // --- LAPORAN KEGIATAN ---
+
 exports.createLaporan = async (req, res) => {
     const { kegiatan_id, nama_file, judul_laporan, detail_kegiatan } = req.body;
-    // img bisa ditangani middleware upload seperti Multer, di sini kita simpan placeholder/path
-    const imgPlaceholder = req.file ? req.file.buffer : null; // Jika menggunakan multer memory storage
+    const imgPlaceholder = req.file ? req.file.buffer : null; 
 
     try {
         await db.query(
@@ -118,31 +137,25 @@ exports.createLaporan = async (req, res) => {
 exports.getCetakLaporanData = async (req, res) => {
     const { kegiatan_id } = req.params;
     try {
-        // Mengambil data gabungan untuk dicetak
+        // JOIN agar saat cetak muncul Nama Lokasi, bukan ID
         const [data] = await db.query(`
-            SELECT k.judul, k.tanggal, k.lokasi, l.judul_laporan, l.detail_kegiatan, l.nama_file
+            SELECT k.judul, k.tanggal, lk.nama_lokasi as lokasi, l.judul_laporan, l.detail_kegiatan, l.nama_file
             FROM kegiatan k
             JOIN laporan l ON k.id = l.kegiatan_id
+            LEFT JOIN lokasi lk ON k.lokasi = lk.id
             WHERE k.id = ?
         `, [kegiatan_id]);
 
         if (data.length === 0) return res.status(404).json({ message: 'Data laporan tidak ditemukan' });
 
-        res.json(data[0]); // Frontend akan menggunakan data ini untuk window.print() atau generate PDF
+        res.json(data[0]); 
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
-exports.getAllLokasi = (req, res) => {
-  const sql = 'SELECT id, nama FROM lokasi ORDER BY nama ASC';
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).json({ message: err.message });
-    res.json(results);
-  });
-};
-
 // --- RIWAYAT PASIEN ---
+
 exports.getRiwayatPasien = async (req, res) => {
     try {
         const [rows] = await db.query(`

@@ -1,24 +1,63 @@
 const db = require('../config/db');
 
-// 1. Ambil Semua Lokasi (Untuk Dropdown di Frontend)
+// ===============================
+// GET semua lokasi
+// ===============================
 exports.getAllLokasi = async (req, res) => {
-    try {
-        // Sesuaikan nama kolom tabel lokasi di database Anda
-        // Berdasarkan SQL yang Anda kirim, tabelnya 'lokasi', kolomnya biasanya 'id' dan 'nama_lokasi'
-        const [rows] = await db.query('SELECT * FROM lokasi ORDER BY nama_lokasi ASC');
-        res.json(rows);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const query = `
+      SELECT 
+        id,
+        nama_lokasi,
+        latitude,
+        longitude,
+        is_puskesmas,
+        created_at
+      FROM lokasi
+      ORDER BY nama_lokasi ASC
+    `;
+
+    const [results] = await db.query(query);
+
+    res.json(results);
+  } catch (err) {
+    console.error('Error ambil lokasi:', err);
+    res.status(500).json({ message: 'Gagal mengambil data lokasi' });
+  }
 };
 
-// 2. Tambah Lokasi Baru (Opsional, jika Admin mau nambah tempat)
+// ===============================
+// TAMBAH lokasi
+// ===============================
 exports.addLokasi = async (req, res) => {
-    const { nama_lokasi } = req.body;
-    try {
-        await db.query('INSERT INTO lokasi (nama_lokasi) VALUES (?)', [nama_lokasi]);
-        res.status(201).json({ message: 'Lokasi berhasil ditambahkan' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+  try {
+    const { nama_lokasi, latitude, longitude, is_puskesmas } = req.body;
+
+    if (!nama_lokasi || !latitude || !longitude) {
+      return res.status(400).json({
+        message: 'nama_lokasi, latitude, dan longitude wajib diisi'
+      });
     }
+
+    const query = `
+      INSERT INTO lokasi
+      (nama_lokasi, latitude, longitude, is_puskesmas)
+      VALUES (?, ?, ?, ?)
+    `;
+
+    const [result] = await db.query(query, [
+      nama_lokasi,
+      latitude,
+      longitude,
+      is_puskesmas ? 1 : 0
+    ]);
+
+    res.status(201).json({
+      message: 'Lokasi berhasil ditambahkan',
+      id: result.insertId
+    });
+  } catch (err) {
+    console.error('Error tambah lokasi:', err);
+    res.status(500).json({ message: 'Gagal menambahkan lokasi' });
+  }
 };

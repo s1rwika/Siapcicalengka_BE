@@ -12,6 +12,7 @@ const dokterController = require('../controllers/dokterController');
 const adminController = require('../controllers/adminController');
 const superadminController = require('../controllers/superadminController');
 const poliController = require('../controllers/poliController');
+const jadwalController = require('../controllers/jadwalController')
 const lokasiController = require('../controllers/lokasiController');
 // =========================================================================
 // 1. AUTHENTICATION (Semua User)
@@ -174,4 +175,9 @@ router.post(
     lokasiController.addLokasi
 );
 
+router.get('/dokter/poli/:poliId', dokterController.getDokterByPoli)
+
+router.get('/jadwal/poli/:poliId', jadwalController.getJadwalByPoli)
+
 module.exports = router;
+

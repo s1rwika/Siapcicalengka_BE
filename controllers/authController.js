@@ -65,3 +65,25 @@ exports.login = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+exports.getProfile = async (req, res) => {
+    try {
+        // req.user.id didapat dari middleware verifyToken
+        const userId = req.user.id; 
+        
+        // Ambil data dari database (sesuaikan dengan query DB Anda)
+        // Contoh jika menggunakan mysql2/promise:
+        const [users] = await db.query(
+            'SELECT id, full_name, username, role FROM users WHERE id = ?', 
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'User tidak ditemukan' });
+        }
+
+        res.json(users[0]); // Mengirimkan full_name, role, dll ke frontend
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};

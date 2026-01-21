@@ -12,14 +12,17 @@ const dokterController = require('../controllers/dokterController');
 const adminController = require('../controllers/adminController');
 const superadminController = require('../controllers/superadminController');
 const poliController = require('../controllers/poliController');
-const jadwalController = require('../controllers/jadwalController')
+const jadwalController = require('../controllers/jadwalController');
 const lokasiController = require('../controllers/lokasiController');
+const controller = require("../controllers/absensiController");
+
 // =========================================================================
 // 1. AUTHENTICATION (Semua User)
 // =========================================================================
 // Endpoint untuk daftar dan login
 router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
+router.get('/auth/profile', verifyToken, authController.getProfile);
 
 // =========================================================================
 // 2. PUBLIC / GUEST (Tanpa Login)
@@ -43,22 +46,14 @@ router.post(
 // =========================================================================
 // 4. DOKTER
 // =========================================================================
-// Ketentuan: Bisa mengatur status hadir atau tidak
-router.post(
-    '/dokter/status', 
-    verifyToken, 
-    authorize(['dokter']), 
-    dokterController.updateStatusKehadiran
-);
 
-// (Opsional) Melihat riwayat absensi sendiri
-router.get(
-    '/dokter/history', 
-    verifyToken, 
-    authorize(['dokter']), 
-    dokterController.getMyStatusHistory
-);
+router.get('/dokter/my-schedule', verifyToken, authorize(['dokter']), dokterController.getMySchedule);
+router.get('/dokter/current-status', verifyToken, authorize(['dokter']), dokterController.getMyCurrentStatus);
+router.post('/dokter/status', verifyToken, authorize(['dokter']), dokterController.updateStatusKehadiran);
+router.get('/dokter/history', verifyToken, authorize(['dokter']), dokterController.getMyStatusHistory);
+router.get('/dokter/poli/:poliId', dokterController.getDokterByPoli);
 
+router.post("/absen", controller.absen);
 // =========================================================================
 // 5. ADMIN
 // =========================================================================
@@ -159,7 +154,7 @@ router.put(
 router.get('/poli', poliController.getAllPoli)
 
 // =========================================================================
-// DATA MASTER: LOKASI
+// 7. DATA MASTER: LOKASI
 // =========================================================================
 
 // 1. GET LOKASI

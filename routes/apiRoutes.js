@@ -14,7 +14,7 @@ const superadminController = require('../controllers/superadminController');
 const poliController = require('../controllers/poliController');
 const jadwalController = require('../controllers/jadwalController');
 const lokasiController = require('../controllers/lokasiController');
-const controller = require("../controllers/absensiController");
+
 
 // =========================================================================
 // 1. AUTHENTICATION (Semua User)
@@ -158,8 +158,11 @@ router.get('/poli', poliController.getAllPoli)
 // =========================================================================
 
 // 1. GET LOKASI
-// Akses: Public (Siapa saja boleh lihat daftar lokasi untuk dropdown)
+// GET semua lokasi
 router.get('/lokasi', lokasiController.getAllLokasi);
+
+// POST tambah lokasi
+router.post('/lokasi', lokasiController.addLokasi);
 
 // 2. TAMBAH LOKASI
 // Akses: Admin DAN Superadmin
@@ -173,6 +176,54 @@ router.post(
 router.get('/dokter/poli/:poliId', dokterController.getDokterByPoli)
 
 router.get('/jadwal/poli/:poliId', jadwalController.getJadwalByPoli)
+
+router.get('/peta/kegiatan/:lokasiId/akan-datang', adminController.getAkanDatangByLokasi);
+router.get('/peta/kegiatan/:lokasiId/selesai', adminController.getSelesaiByLokasi);
+
+
+
+
+
+
+
+
+
+// =========================================================================
+// REVIEW / KOMENTAR LAPORAN
+// =========================================================================
+
+// GET reviews untuk laporan
+router.get(
+  '/laporan/:laporanId/reviews',
+  verifyToken,
+  adminController.getReviewsByLaporan
+);
+
+// POST review baru
+router.post(
+  '/laporan/:laporanId/review',
+  verifyToken,
+  authorize(['user', 'admin', 'superadmin']), // Hanya user, admin, superadmin
+  adminController.addReview
+);
+
+// UPDATE review
+router.put(
+  '/review/:reviewId',
+  verifyToken,
+  authorize(['user', 'admin', 'superadmin']),
+  adminController.updateReview
+);
+
+// DELETE review
+router.delete(
+  '/review/:reviewId',
+  verifyToken,
+  authorize(['user', 'admin', 'superadmin']),
+  adminController.deleteReview
+);
+
+
 
 module.exports = router;
 

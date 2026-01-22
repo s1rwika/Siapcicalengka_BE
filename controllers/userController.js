@@ -20,3 +20,22 @@ exports.addReview = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+// GET USERS BY ROLE (ADMIN)
+exports.getUsersByRole = async (req, res) => {
+  const { role } = req.query
+
+  try {
+    let sql = 'SELECT id, full_name AS name FROM users'
+    let params = []
+
+    if (role) {
+      sql += ' WHERE role = ?'
+      params.push(role)
+    }
+
+    const [rows] = await db.query(sql, params)
+    res.json(rows)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}

@@ -1,39 +1,27 @@
-const cron = require('node-cron')
-const db = require('../config/db') // mysql2 promise pool
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
-cron.schedule('* * * * *', async () => {
-  console.log('[CRON] cek jam jadwal dokter...')
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-  try {
-    const now = new Date()
-    const menitSekarang = now.getHours() * 60 + now.getMinutes()
+    if (!token) return res.status(401).json({ message: 'Akses ditolak, token tidak tersedia' });
 
-    // Ambil jam selesai dokter (hari ini)
-    const [rows] = await db.query(`
-      SELECT jam_selesai
-      FROM jadwal_dokter
-      WHERE DATE(created_at) = CURDATE()
-      LIMIT 1
-    `)
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ message: 'Token tidak valid' });
+        req.user = user; // Menyimpan data user (id, role) ke request
+        next();
+    });
+};
 
-    if (rows.length === 0) return
+// Middleware untuk membatasi akses berdasarkan Role
+const authorize = (allowedRoles = []) => {
+    return (req, res, next) => {
+        if (!req.user || !allowedRoles.includes(req.user.role)) {
+            return res.status(403).json({ message: 'Anda tidak memiliki izin untuk akses ini' });
+        }
+        next();
+    };
+};
 
-    const jamSelesai = rows[0].jam_selesai
-
-    const menitSelesai =
-      parseInt(jamSelesai.split(':')[0]) * 60 +
-      parseInt(jamSelesai.split(':')[1])
-
-    if (menitSekarang >= menitSelesai) {
-      console.log('[CRON] Jam selesai → status nonaktif')
-
-      await db.query(`
-        UPDATE jadwal_dokter
-        SET status = 'nonaktif'
-        WHERE status = 'aktif'
-      `)
-    }
-  } catch (err) {
-    console.error('[CRON ERROR]', err.message)
-  }
-})
+module.exports = { verifyToken, authorize };

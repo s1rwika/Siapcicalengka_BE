@@ -17,22 +17,36 @@ const poliController = require('../controllers/poliController')
 const jadwalController = require('../controllers/jadwalController')
 const lokasiController = require('../controllers/lokasiController')
 const riwayatPenyakitController = require('../controllers/riwayatPenyakitController')
+const absensiController = require('../controllers/absensiController')
 
 // =========================================================================
-// 1. AUTH
+// 1. AUTHENTICATION
 // =========================================================================
 router.post('/auth/register', authController.register)
 router.post('/auth/login', authController.login)
+router.get('/auth/profile', verifyToken, authController.getProfile)
 
 // =========================================================================
-// 2. PUBLIC
+// 2. PUBLIC / GUEST ROUTES
 // =========================================================================
+// KEGIATAN
 router.get('/kegiatan', publicController.getKegiatanPublic)
 router.get('/kegiatan/:id/detail', publicController.getDetailKegiatanPublic)
 
+// DATA MASTER
+router.get('/lokasi', lokasiController.getAllLokasi)
+router.get('/poli', poliController.getAllPoli)
+router.get('/dokter/poli/:poliId', dokterController.getDokterByPoli)
+router.get('/jadwal/poli/:poliId', jadwalController.getJadwalByPoli)
+
+// KEGIATAN BERDASARKAN LOKASI
+router.get('/peta/kegiatan/:lokasiId/akan-datang', adminController.getAkanDatangByLokasi)
+router.get('/peta/kegiatan/:lokasiId/selesai', adminController.getSelesaiByLokasi)
+
 // =========================================================================
-// 3. USER
+// 3. USER ROUTES
 // =========================================================================
+// REVIEW KEGIATAN
 router.post(
   '/kegiatan/:id/review',
   verifyToken,
@@ -41,8 +55,23 @@ router.post(
 )
 
 // =========================================================================
-// 4. DOKTER
+// 4. DOKTER ROUTES
 // =========================================================================
+// JADWAL & STATUS
+router.get(
+  '/dokter/my-schedule',
+  verifyToken,
+  authorize(['dokter']),
+  dokterController.getMySchedule
+)
+
+router.get(
+  '/dokter/current-status',
+  verifyToken,
+  authorize(['dokter']),
+  dokterController.getMyCurrentStatus
+)
+
 router.post(
   '/dokter/status',
   verifyToken,
@@ -57,11 +86,18 @@ router.get(
   dokterController.getMyStatusHistory
 )
 
-router.get('/dokter/poli/:poliId', dokterController.getDokterByPoli)
+// ABSENSI
+router.post(
+  "/absen",
+  verifyToken,
+  authorize(['dokter']),
+  absensiController.absen
+)
 
 // =========================================================================
-// 5. ADMIN – KEGIATAN
+// 5. ADMIN ROUTES - MANAJEMEN KEGIATAN
 // =========================================================================
+// CREATE KEGIATAN
 router.post(
   '/admin/kegiatan',
   verifyToken,
@@ -69,6 +105,7 @@ router.post(
   adminController.createKegiatan
 )
 
+// GET ALL KEGIATAN
 router.get(
   '/admin/kegiatan',
   verifyToken,
@@ -76,6 +113,7 @@ router.get(
   adminController.getAllKegiatanAdmin
 )
 
+// UPDATE KEGIATAN
 router.put(
   '/admin/kegiatan/:id',
   verifyToken,
@@ -84,19 +122,21 @@ router.put(
 )
 
 // =========================================================================
-// 6. ADMIN – LAPORAN
+// 6. ADMIN ROUTES - MANAJEMEN LAPORAN
 // =========================================================================
+// GET ALL LAPORAN
 router.get(
   '/admin/laporan',
   verifyToken,
-  authorize(['admin','superadmin']),
+  authorize(['admin', 'superadmin']),
   adminController.getAllLaporan
 )
 
+// CREATE LAPORAN
 router.post(
   '/admin/laporan',
   verifyToken,
-  authorize(['admin','superadmin']),
+  authorize(['admin', 'superadmin']),
   upload.single('img'),
   adminController.createLaporan
 )
@@ -105,109 +145,31 @@ router.post(
 router.put(
   '/admin/laporan/:id',
   verifyToken,
-  authorize(['admin','superadmin']),
+  authorize(['admin', 'superadmin']),
   upload.single('img'),
   adminController.updateLaporan
 )
 
+// DELETE LAPORAN
 router.delete(
   '/admin/laporan/:id',
   verifyToken,
-  authorize(['admin','superadmin']),
+  authorize(['admin', 'superadmin']),
   adminController.deleteLaporan
 )
 
-// =========================================================================
-// 7. RIWAYAT PENYAKIT (INI FOKUS KAMU)
-// =========================================================================
+// CETAK LAPORAN
 router.get(
-  '/admin/riwayat-pasien',
-  verifyToken,
-  authorize(['admin', 'superadmin', 'dokter']),
-  riwayatPenyakitController.getAll
-)
-
-router.post(
-  '/admin/riwayat-pasien',
+  '/admin/laporan/cetak/:kegiatan_id',
   verifyToken,
   authorize(['admin', 'superadmin']),
-  riwayatPenyakitController.create
+  adminController.getCetakLaporanData
 )
-
-router.put(
-  '/admin/riwayat-pasien/:id',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  riwayatPenyakitController.update
-)
-
-router.delete(
-  '/admin/riwayat-pasien/:id',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  riwayatPenyakitController.remove
-)
-
 
 // =========================================================================
-// 8. DATA MASTER
+// 7. ADMIN ROUTES - MANAJEMEN DOKTER
 // =========================================================================
-router.get('/lokasi', lokasiController.getAllLokasi)
-
-router.post(
-  '/admin/lokasi',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  lokasiController.addLokasi
-)
-
-router.get('/poli', poliController.getAllPoli)
-
-// =========================================================================
-// 9. ADMIN – DOKTER & JADWAL
-// =========================================================================
-router.get(
-  '/admin/dokter',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  dokterController.getAllDokterAdmin
-)
-
-router.post(
-  '/admin/dokter',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  dokterController.addDokterAdmin
-)
-
-router.put(
-  '/admin/dokter/:id',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  dokterController.updateDokterAdmin
-)
-
-router.get(
-  '/admin/dokter/:id/jadwal',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  dokterController.getJadwalDokterAdmin
-)
-
-router.post(
-  '/admin/jadwal',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  dokterController.addJadwalDokterAdmin
-)
-
-router.put(
-  '/admin/jadwal/:id',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  dokterController.updateJadwalDokterAdmin
-)
-
+// GET USER YANG BELUM JADI DOKTER
 router.get(
   '/admin/user-dokter',
   verifyToken,
@@ -215,9 +177,164 @@ router.get(
   dokterController.getUserDokter
 )
 
+// GET ALL DOKTER
+router.get(
+  '/admin/dokter',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  dokterController.getAllDokterAdmin
+)
+
+// ADD DOKTER
+router.post(
+  '/admin/dokter',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  dokterController.addDokterAdmin
+)
+
+// UPDATE DOKTER
+router.put(
+  '/admin/dokter/:id',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  dokterController.updateDokterAdmin
+)
+
+// GET JADWAL DOKTER
+router.get(
+  '/admin/dokter/:id/jadwal',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  dokterController.getJadwalDokterAdmin
+)
+
+// ADD JADWAL DOKTER
+router.post(
+  '/admin/jadwal',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  dokterController.addJadwalDokterAdmin
+)
+
+// UPDATE JADWAL DOKTER
+router.put(
+  '/admin/jadwal/:id',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  dokterController.updateJadwalDokterAdmin
+)
+
 // =========================================================================
-// 10. SUPERADMIN
+// 8. ADMIN ROUTES - MANAJEMEN LOKASI
 // =========================================================================
+// ADD LOKASI
+router.post(
+  '/admin/lokasi',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  lokasiController.addLokasi
+)
+
+// =========================================================================
+// 9. ADMIN ROUTES - RIWAYAT PASIEN
+// =========================================================================
+// GET ALL RIWAYAT PASIEN
+router.get(
+  '/admin/riwayat-pasien',
+  verifyToken,
+  authorize(['admin', 'superadmin', 'dokter']),
+  riwayatPenyakitController.getAll
+)
+
+// CREATE RIWAYAT PASIEN
+router.post(
+  '/admin/riwayat-pasien',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  riwayatPenyakitController.create
+)
+
+// UPDATE RIWAYAT PASIEN
+router.put(
+  '/admin/riwayat-pasien/:id',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  riwayatPenyakitController.update
+)
+
+// DELETE RIWAYAT PASIEN
+router.delete(
+  '/admin/riwayat-pasien/:id',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  riwayatPenyakitController.remove
+)
+
+// ALTERNATIVE ROUTES FOR RIWAYAT PASIEN (jika masih menggunakan adminController)
+router.get(
+  '/admin/riwayat-pasien-old',
+  verifyToken,
+  authorize(['admin', 'superadmin', 'dokter']),
+  adminController.getRiwayatPasien
+)
+
+router.post(
+  '/admin/riwayat-pasien-old',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.addRiwayatPasien
+)
+
+// =========================================================================
+// 10. REVIEW / KOMENTAR LAPORAN
+// =========================================================================
+// GET REVIEWS FOR LAPORAN
+router.get(
+  '/laporan/:laporanId/reviews',
+  verifyToken,
+  adminController.getReviewsByLaporan
+)
+
+// ADD REVIEW FOR LAPORAN
+router.post(
+  '/laporan/:laporanId/review',
+  verifyToken,
+  authorize(['user', 'admin', 'superadmin']),
+  adminController.addReview
+)
+
+// UPDATE REVIEW
+router.put(
+  '/review/:reviewId',
+  verifyToken,
+  authorize(['user', 'admin', 'superadmin']),
+  adminController.updateReview
+)
+
+// DELETE REVIEW
+router.delete(
+  '/review/:reviewId',
+  verifyToken,
+  authorize(['user', 'admin', 'superadmin']),
+  adminController.deleteReview
+)
+
+// =========================================================================
+// 11. USER MANAGEMENT
+// =========================================================================
+// GET USERS BY ROLE
+router.get(
+  '/users',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  userController.getUsersByRole
+)
+
+// =========================================================================
+// 12. SUPERADMIN ROUTES
+// =========================================================================
+// APPROVE KEGIATAN
 router.put(
   '/superadmin/approve-kegiatan/:id',
   verifyToken,
@@ -225,6 +342,7 @@ router.put(
   superadminController.approveKegiatan
 )
 
+// GET ROLE APPROVALS
 router.get(
   '/superadmin/role-approvals',
   verifyToken,
@@ -232,21 +350,12 @@ router.get(
   superadminController.getRoleApprovals
 )
 
+// APPROVE ROLE
 router.put(
   '/superadmin/approve-role/:id',
   verifyToken,
   authorize(['superadmin']),
   superadminController.approveRole
-)
-
-// =========================================================================
-// USERS (FILTER ROLE)
-// =========================================================================
-router.get(
-  '/users',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  userController.getUsersByRole
 )
 
 module.exports = router

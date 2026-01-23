@@ -24,10 +24,10 @@ exports.register = async (req, res) => {
 
         await db.query(
             'INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)',
-            [username, hashedPassword, full_name, 'user'] // 🔒 PAKSA user
+            [username, hashedPassword, full_name, null]
         );
 
-        res.status(201).json({ message: 'Registrasi berhasil' });
+        res.status(201).json({ message: 'Registrasi berhasil, menunggu approval admin' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -60,6 +60,25 @@ exports.login = async (req, res) => {
                 role: user.role,
                 full_name: user.full_name
             }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getProfile = async (req, res) => {
+    const userId = req.user.id;
+
+    try {
+        const [users] = await db.query('SELECT id, username, full_name, role FROM users WHERE id = ?', [userId]);
+
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'User tidak ditemukan' });
+        }
+
+        res.json({
+            message: 'Profil user',
+            user: users[0]
         });
     } catch (error) {
         res.status(500).json({ error: error.message });

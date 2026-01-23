@@ -18,6 +18,7 @@ const jadwalController = require('../controllers/jadwalController')
 const lokasiController = require('../controllers/lokasiController')
 const riwayatPenyakitController = require('../controllers/riwayatPenyakitController')
 const absensiController = require('../controllers/absensiController')
+const petaController = require('../controllers/petaController');
 
 // =========================================================================
 // 1. AUTHENTICATION
@@ -40,8 +41,11 @@ router.get('/dokter/poli/:poliId', dokterController.getDokterByPoli)
 router.get('/jadwal/poli/:poliId', jadwalController.getJadwalByPoli)
 
 // KEGIATAN BERDASARKAN LOKASI
-router.get('/peta/kegiatan/:lokasiId/akan-datang', adminController.getAkanDatangByLokasi)
-router.get('/peta/kegiatan/:lokasiId/selesai', adminController.getSelesaiByLokasi)
+// router.get('/peta/kegiatan/:lokasiId/akan-datang', adminController.getAkanDatangByLokasi)
+// router.get('/peta/kegiatan/:lokasiId/selesai', adminController.getSelesaiByLokasi)
+
+router.get('/peta/kegiatan/:lokasiId/akan-datang', petaController.getKegiatanAkanDatang)
+router.get('/peta/kegiatan/:lokasiId/selesai', petaController.getKegiatanSelesai)
 
 // REVIEWS (PUBLIC ACCESS) - TAMBAHAN BARU
 router.get('/laporan/:laporanId/reviews', publicController.getReviewsByLaporanPublic)

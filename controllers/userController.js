@@ -96,18 +96,7 @@ exports.getReviewsForKegiatan = async (req, res) => {
     const { id } = req.params; // ID Kegiatan
 
     try {
-        // Cek apakah kegiatan ada
-        const [cekKegiatan] = await db.query(
-            'SELECT id, judul FROM kegiatan WHERE id = ?', 
-            [id]
-        );
-        
-        if (cekKegiatan.length === 0) {
-            return res.status(404).json({ 
-                success: false,
-                message: 'Kegiatan tidak ditemukan' 
-            });
-        }
+        // ... kode sebelumnya ...
 
         // Get reviews with user information
         const [reviews] = await db.query(`
@@ -116,49 +105,19 @@ exports.getReviewsForKegiatan = async (req, res) => {
                 kr.pesan,
                 kr.rating,
                 kr.created_at,
-                u.full_name as reviewer_name,
-                u.email as reviewer_email
+                u.full_name as reviewer_name
+                -- Hapus: u.email as reviewer_email
             FROM kegiatan_review kr
             JOIN users u ON kr.user_id = u.id
             WHERE kr.kegiatan_id = ?
             ORDER BY kr.created_at DESC
         `, [id]);
 
-        // Calculate average rating
-        const [ratingStats] = await db.query(`
-            SELECT 
-                COUNT(*) as total_reviews,
-                AVG(rating) as average_rating
-            FROM kegiatan_review 
-            WHERE kegiatan_id = ?
-        `, [id]);
-
-        const stats = ratingStats[0] || { 
-            total_reviews: 0, 
-            average_rating: 0 
-        };
-
-        res.json({ 
-            success: true,
-            data: {
-                kegiatan: cekKegiatan[0],
-                reviews: reviews,
-                stats: {
-                    total_reviews: stats.total_reviews,
-                    average_rating: stats.average_rating ? parseFloat(stats.average_rating).toFixed(1) : 0
-                }
-            }
-        });
+        // ... kode setelahnya ...
     } catch (error) {
-        console.error('Error in getReviewsForKegiatan:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Gagal mengambil review',
-            error: error.message 
-        });
+        // ... error handling ...
     }
 };
-
 // UPDATE REVIEW
 exports.updateReview = async (req, res) => {
     const { reviewId } = req.params;
@@ -281,10 +240,9 @@ exports.getUsersByRole = async (req, res) => {
                 id, 
                 username,
                 full_name AS name,
-                email,
                 role,
-                created_at,
-                updated_at
+                created_at
+                -- Hapus: updated_at
             FROM users 
             WHERE 1=1
         `;
@@ -323,10 +281,9 @@ exports.getUserById = async (req, res) => {
                 id, 
                 username,
                 full_name AS name,
-                email,
                 role,
-                created_at,
-                updated_at
+                created_at
+                -- Hapus: updated_at
             FROM users 
             WHERE id = ?
         `, [id]);
@@ -355,7 +312,7 @@ exports.getUserById = async (req, res) => {
 // UPDATE USER (ADMIN)
 exports.updateUser = async (req, res) => {
     const { id } = req.params;
-    const { full_name, email, role } = req.body;
+    const { full_name, role } = req.body;
 
     try {
         // Validasi input
@@ -366,14 +323,7 @@ exports.updateUser = async (req, res) => {
             });
         }
 
-        if (!email || email.trim() === '') {
-            return res.status(400).json({ 
-                success: false,
-                message: 'Email tidak boleh kosong' 
-            });
-        }
-
-        const validRoles = ['admin', 'dokter', 'perawat', 'staff'];
+        const validRoles = ['superadmin', 'admin', 'dokter', 'user'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({ 
                 success: false,
@@ -394,10 +344,10 @@ exports.updateUser = async (req, res) => {
             });
         }
 
-        // Update user
+        // Update user (tanpa updated_at)
         const [result] = await db.query(
-            'UPDATE users SET full_name = ?, email = ?, role = ?, updated_at = NOW() WHERE id = ?',
-            [full_name.trim(), email.trim(), role, id]
+            'UPDATE users SET full_name = ?, role = ? WHERE id = ?', // Hapus updated_at
+            [full_name.trim(), role, id]
         );
 
         if (result.affectedRows === 0) {
@@ -413,14 +363,6 @@ exports.updateUser = async (req, res) => {
         });
     } catch (error) {
         console.error('Error in updateUser:', error);
-        
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ 
-                success: false,
-                message: 'Email sudah digunakan' 
-            });
-        }
-        
         res.status(500).json({ 
             success: false,
             message: 'Gagal memperbarui user',

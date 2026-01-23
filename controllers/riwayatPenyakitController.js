@@ -76,3 +76,125 @@ exports.remove = async (req, res) => {
     res.status(500).json({ message: 'Gagal menghapus data' })
   }
 }
+
+// ================= GET STATISTIK PENYAKIT =================
+exports.getStatistikPenyakit = async (req, res) => {
+  const { lokasi_id, penyakit, start_date, end_date } = req.query;
+
+  try {
+    let sql = `
+      SELECT 
+        penyakit,
+        COUNT(*) as jumlah,
+        lokasi_id,
+        l.nama_lokasi
+      FROM riwayat_penyakit rp
+      LEFT JOIN lokasi l ON rp.lokasi_id = l.id
+      WHERE 1=1
+    `;
+    
+    const params = [];
+
+    // Filter berdasarkan lokasi
+    if (lokasi_id && lokasi_id !== 'all') {
+      sql += ' AND rp.lokasi_id = ?';
+      params.push(lokasi_id);
+    }
+
+    // Filter berdasarkan penyakit
+    if (penyakit && penyakit !== 'all') {
+      sql += ' AND rp.penyakit LIKE ?';
+      params.push(`%${penyakit}%`);
+    }
+
+    // Filter berdasarkan tanggal
+    if (start_date) {
+      sql += ' AND rp.tanggal >= ?';
+      params.push(start_date);
+    }
+
+    if (end_date) {
+      sql += ' AND rp.tanggal <= ?';
+      params.push(end_date);
+    }
+
+    sql += ' GROUP BY penyakit, lokasi_id ORDER BY jumlah DESC';
+
+    const [rows] = await db.query(sql, params);
+
+    // Hitung total untuk persentase
+    const total = rows.reduce((sum, item) => sum + item.jumlah, 0);
+
+    // Format data untuk chart
+    const chartData = rows.map(item => ({
+      penyakit: item.penyakit,
+      jumlah: item.jumlah,
+      lokasi: item.nama_lokasi || 'Tidak diketahui',
+      persentase: total > 0 ? ((item.jumlah / total) * 100).toFixed(1) : 0
+    }));
+
+    // Get unique penyakit untuk dropdown
+    const [uniquePenyakit] = await db.query(`
+      SELECT DISTINCT penyakit 
+      FROM riwayat_penyakit 
+      WHERE penyakit IS NOT NULL AND penyakit != ''
+      ORDER BY penyakit
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        chartData,
+        totalKasus: total,
+        summary: rows,
+        penyakitOptions: uniquePenyakit.map(p => p.penyakit)
+      }
+    });
+
+  } catch (err) {
+    console.error('Error getStatistikPenyakit:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Gagal mengambil statistik penyakit',
+      error: err.message 
+    });
+  }
+};
+
+// ================= GET DISTRIBUSI LOKASI =================
+exports.getDistribusiLokasi = async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        l.nama_lokasi,
+        COUNT(rp.id) as jumlah_kasus,
+        GROUP_CONCAT(DISTINCT rp.penyakit) as penyakit_list
+      FROM lokasi l
+      LEFT JOIN riwayat_penyakit rp ON l.id = rp.lokasi_id
+      GROUP BY l.id, l.nama_lokasi
+      ORDER BY jumlah_kasus DESC
+    `);
+
+    const total = rows.reduce((sum, item) => sum + item.jumlah_kasus, 0);
+
+    const data = rows.map(item => ({
+      lokasi: item.nama_lokasi,
+      jumlah: item.jumlah_kasus,
+      penyakit: item.penyakit_list ? item.penyakit_list.split(',').slice(0, 3).join(', ') : 'Tidak ada data',
+      persentase: total > 0 ? ((item.jumlah_kasus / total) * 100).toFixed(1) : 0
+    }));
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    console.error('Error getDistribusiLokasi:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Gagal mengambil distribusi lokasi',
+      error: err.message 
+    });
+  }
+};

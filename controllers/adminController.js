@@ -4,6 +4,10 @@ const db = require('../config/db')
    ================= MANAJEMEN KEGIATAN =================
    ===================================================== */
 
+/* =====================================================
+   ================= MANAJEMEN KEGIATAN =================
+   ===================================================== */
+
 // CREATE KEGIATAN (ADMIN)
 exports.createKegiatan = async (req, res) => {
   const {
@@ -14,46 +18,86 @@ exports.createKegiatan = async (req, res) => {
     tanggal,
     lokasi_id,
     jam_mulai,
-    jam_selesai
+    jam_selesai,
+    user_id  // TAMBAHKAN: Ambil dari req.body, bukan req.user.id
   } = req.body
+
+  console.log('Request body:', req.body); // Debug
+  console.log('User dari token:', req.user); // Debug
 
   if (!id) {
     return res.status(400).json({
+      success: false,
       message: 'ID kegiatan wajib diisi (Format contoh: PY-001)'
     })
   }
 
+  // Validasi required fields
+  if (!judul || !jenis_kegiatan_id || !tanggal || !lokasi_id || !user_id) {
+    return res.status(400).json({
+      success: false,
+      message: 'Semua field wajib diisi kecuali deskripsi'
+    })
+  }
+
   try {
-    await db.query(
-      `INSERT INTO kegiatan
+    // Gunakan user_id dari form (dropdown), bukan dari token
+    const [result] = await db.query(
+      `INSERT INTO kegiatan 
       (id, judul, deskripsi, jenis_kegiatan_id, tanggal, lokasi, user_id, jam_mulai, jam_selesai, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         judul,
-        deskripsi,
+        deskripsi || null, // Jika deskripsi kosong, set null
         jenis_kegiatan_id,
         tanggal,
         lokasi_id,
-        req.user.id,
-        jam_mulai,
-        jam_selesai,
-        'menunggu'
+        user_id, // Menggunakan user_id dari dropdown, bukan req.user.id
+        jam_mulai || '08:00:00', // Default jika kosong
+        jam_selesai || '10:00:00', // Default jika kosong
+        'menunggu' // Status otomatis 'menunggu'
       ]
     )
 
     res.status(201).json({
+      success: true,
       message: 'Kegiatan berhasil dibuat',
-      id
+      id: id,
+      insertId: result.insertId
     })
 
   } catch (error) {
+    console.error('Error createKegiatan:', error);
+    
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({
+        success: false,
         message: `ID kegiatan ${id} sudah digunakan`
       })
     }
-    res.status(500).json({ error: error.message })
+    
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({
+        success: false,
+        message: 'Data referensi tidak valid (lokasi/jenis kegiatan/user tidak ditemukan)'
+      })
+    }
+    
+    if (error.code === 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD') {
+      return res.status(400).json({
+        success: false,
+        message: 'Format data tidak valid'
+      })
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      message: 'Gagal membuat kegiatan',
+      error: error.message,
+      code: error.code,
+      sqlState: error.sqlState
+    })
   }
 }
 
@@ -509,21 +553,27 @@ exports.getCetakLaporanData = async (req, res) => {
    ===================================================== */
 
 // GET REVIEWS BY LAPORAN
+// Di adminController.js - fungsi getReviewsByLaporan
 exports.getReviewsByLaporan = async (req, res) => {
-  const { laporanId } = req.params
+  const { laporanId } = req.params;
 
   try {
     const [reviews] = await db.query(
       `SELECT 
-        kr.*,
+        kr.id,
+        kr.laporan_id,
+        kr.user_id,
+        kr.pesan,
+        kr.rating,
+        kr.tanggal,  // PERUBAHAN: tambahkan tanggal
         u.full_name,
         u.email
       FROM kegiatan_review kr
       JOIN users u ON kr.user_id = u.id
       WHERE kr.laporan_id = ?
-      ORDER BY kr.tanggal DESC`,
+      ORDER BY kr.tanggal DESC`,  // PERUBAHAN: dari kr.tanggal ke kr.tanggal
       [laporanId]
-    )
+    );
 
     const [ratingStats] = await db.query(
       `SELECT 
@@ -532,21 +582,20 @@ exports.getReviewsByLaporan = async (req, res) => {
       FROM kegiatan_review 
       WHERE laporan_id = ?`,
       [laporanId]
-    )
+    );
 
     res.json({
       reviews,
       stats: ratingStats[0] || { total_reviews: 0, average_rating: 0 }
-    })
+    });
   } catch (err) {
-    console.error('Error getReviewsByLaporan:', err)
+    console.error('Error getReviewsByLaporan:', err);
     res.status(500).json({ 
       message: 'Gagal mengambil review', 
       error: err.message 
-    })
+    });
   }
-}
-
+};
 // ADD REVIEW
 exports.addReview = async (req, res) => {
   const { laporanId } = req.params

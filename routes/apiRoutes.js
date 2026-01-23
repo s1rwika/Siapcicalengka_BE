@@ -4,7 +4,7 @@ const multer = require('multer')
 const upload = multer()
 
 // ================= MIDDLEWARE =================
-const { verifyToken, authorize } = require('../middleware/auth')
+const { verifyToken, authorize, verifyAdmin } = require('../middleware/auth') // Tambahkan verifyAdmin jika dibuat
 
 // ================= CONTROLLERS =================
 const authController = require('../controllers/authController')
@@ -42,6 +42,14 @@ router.get('/jadwal/poli/:poliId', jadwalController.getJadwalByPoli)
 // KEGIATAN BERDASARKAN LOKASI
 router.get('/peta/kegiatan/:lokasiId/akan-datang', adminController.getAkanDatangByLokasi)
 router.get('/peta/kegiatan/:lokasiId/selesai', adminController.getSelesaiByLokasi)
+
+// REVIEWS (PUBLIC ACCESS) - TAMBAHAN BARU
+router.get('/laporan/:laporanId/reviews', publicController.getReviewsByLaporanPublic)
+
+// TEST/DEBUG ENDPOINTS (optional, bisa dihapus di production)
+router.get('/test/reviews', publicController.testReviewConnection)
+router.get('/debug/reviews-info', publicController.getReviewTableInfo)
+
 
 // =========================================================================
 // 3. USER ROUTES
@@ -289,9 +297,9 @@ router.post(
 // =========================================================================
 // 10. REVIEW / KOMENTAR LAPORAN
 // =========================================================================
-// GET REVIEWS FOR LAPORAN
+// GET REVIEWS FOR LAPORAN (AUTHENTICATED - dengan info user review)
 router.get(
-  '/laporan/:laporanId/reviews',
+  '/laporan/:laporanId/reviews/auth',
   verifyToken,
   adminController.getReviewsByLaporan
 )
@@ -357,5 +365,27 @@ router.put(
   authorize(['superadmin']),
   superadminController.approveRole
 )
+
+// =========================================================================
+// 13. STATISTIK PENYAKIT
+// =========================================================================
+// GET STATISTIK PENYAKIT
+router.get(
+  '/statistik-penyakit',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  riwayatPenyakitController.getStatistikPenyakit
+)
+
+// GET DISTRIBUSI LOKASI
+router.get(
+  '/distribusi-lokasi',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  riwayatPenyakitController.getDistribusiLokasi
+)
+
+// Di bagian PUBLIC ROUTES
+router.get('/test/reviews', publicController.testReviewConnection);
 
 module.exports = router

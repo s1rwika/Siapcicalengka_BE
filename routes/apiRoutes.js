@@ -102,6 +102,7 @@ router.post(
   absensiController.absen
 )
 
+router.post("/absen", absensiController.absen);
 // =========================================================================
 // 5. ADMIN ROUTES - MANAJEMEN KEGIATAN
 // =========================================================================

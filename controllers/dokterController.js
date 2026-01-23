@@ -55,6 +55,10 @@ exports.getMySchedule = async (req, res) => {
 exports.getMyCurrentStatus = async (req, res) => {
   const userId = req.user.id
 
+// --- B. CEK STATUS SAAT INI & AUTO-OFF ---
+// Fungsi ini dipanggil saat dokter membuka dashboard (untuk sinkronisasi status)
+exports.getMyCurrentStatus = async (req, res) => {
+  const userId = req.user.id;
   try {
     const [dokterRows] = await db.query(
       'SELECT id FROM dokter WHERE user_id = ?', 
@@ -221,8 +225,7 @@ exports.getMyStatusHistory = async (req, res) => {
 
 // PUBLIC: Lihat dokter per poli
 exports.getDokterByPoli = async (req, res) => {
-  const { poliId } = req.params
-
+  const { poliId } = req.params;
   try {
     const [rows] = await db.query(`
       SELECT 
@@ -297,8 +300,7 @@ exports.getAllDokterAdmin = async (req, res) => {
 
     res.json(rows)
   } catch (error) {
-    console.error(error)
-    res.status(500).json({ message: 'Gagal mengambil data dokter' })
+    res.status(500).json({ error: error.message });
   }
 }
 

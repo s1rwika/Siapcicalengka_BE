@@ -15,6 +15,8 @@ const poliController = require('../controllers/poliController');
 const jadwalController = require('../controllers/jadwalController');
 const lokasiController = require('../controllers/lokasiController');
 
+const controller = require("../controllers/absensiController");
+const izinController = require('../controllers/izinController');
 
 // =========================================================================
 // 1. AUTHENTICATION (Semua User)
@@ -53,7 +55,7 @@ router.post('/dokter/status', verifyToken, authorize(['dokter']), dokterControll
 router.get('/dokter/history', verifyToken, authorize(['dokter']), dokterController.getMyStatusHistory);
 router.get('/dokter/poli/:poliId', dokterController.getDokterByPoli);
 
-router.post("/absen", controller.absen);
+router.post("/absen", absensiController.absen);
 // =========================================================================
 // 5. ADMIN
 // =========================================================================
@@ -150,6 +152,12 @@ router.put(
     authorize(['superadmin']), 
     superadminController.approveRole
 );
+
+// Route Izin
+router.post('/izin', izinController.ajukanIzin);
+router.get('/izin/riwayat/:userId', izinController.getRiwayatIzin);
+router.get('/izin/all', izinController.getAllIzin);
+router.patch('/izin/approve/:id', izinController.approveIzin);
 
 router.get('/poli', poliController.getAllPoli)
 

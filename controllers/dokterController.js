@@ -51,10 +51,6 @@ exports.getMySchedule = async (req, res) => {
   }
 }
 
-// DOKTER: Cek status saat ini & auto-off
-exports.getMyCurrentStatus = async (req, res) => {
-  const userId = req.user.id
-
 // --- B. CEK STATUS SAAT INI & AUTO-OFF ---
 // Fungsi ini dipanggil saat dokter membuka dashboard (untuk sinkronisasi status)
 exports.getMyCurrentStatus = async (req, res) => {
@@ -262,8 +258,7 @@ exports.getUserDokter = async (req, res) => {
       SELECT 
         u.id,
         u.username,
-        u.full_name,
-        u.email
+        u.full_name
       FROM users u
       WHERE u.role = 'dokter'
         AND u.id NOT IN (SELECT user_id FROM dokter)
@@ -286,8 +281,6 @@ exports.getAllDokterAdmin = async (req, res) => {
         d.user_id,
         d.nama,
         d.spesialis,
-        d.no_telepon,
-        d.email,
         d.poli_id,
         p.nama_poli,
         u.username,
@@ -306,14 +299,14 @@ exports.getAllDokterAdmin = async (req, res) => {
 
 // ADMIN: TAMBAH DOKTER
 exports.addDokterAdmin = async (req, res) => {
-  const { user_id, nama, spesialis, no_telepon, email, poli_id } = req.body
+  const { user_id, nama, spesialis, poli_id } = req.body
 
   try {
     await db.query(`
       INSERT INTO dokter
-      (user_id, nama, spesialis, no_telepon, email, poli_id)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, [user_id, nama, spesialis, no_telepon, email, poli_id])
+      (user_id, nama, spesialis, poli_id)
+      VALUES (?, ?, ?, ?)
+    `, [user_id, nama, spesialis, poli_id])
 
     res.status(201).json({ 
       message: 'Dokter berhasil ditambahkan',
@@ -530,4 +523,4 @@ exports.deleteDokterAdmin = async (req, res) => {
       error: error.message 
     })
   }
-}
+};

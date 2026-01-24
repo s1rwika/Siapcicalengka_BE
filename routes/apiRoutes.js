@@ -370,6 +370,35 @@ router.put(
   authorize(['superadmin']),
   superadminController.approveRole
 )
+// approval kegiatan
+router.get(
+  '/superadmin/kegiatan',
+  verifyToken,
+  superadminController.getApprovalKegiatan
+)
+
+router.put(
+  '/superadmin/kegiatan/:id/:status',
+  verifyToken,
+  superadminController.updateStatusKegiatan
+)
+
+// ===============================
+// SUPERADMIN - APPROVAL LAPORAN
+// ===============================
+router.put(
+  '/superadmin/laporan/:id/approve',
+  superadminController.approveLaporan
+)
+
+router.put(
+  '/superadmin/laporan/:id/reject',
+  superadminController.rejectLaporan
+)
+
+router.get('/superadmin/izin', superadminController.getAllIzin)
+router.put('/superadmin/izin/:id/approve', superadminController.approveIzin)
+router.put('/superadmin/izin/:id/reject', superadminController.rejectIzin)
 
 // =========================================================================
 // 13. STATISTIK PENYAKIT

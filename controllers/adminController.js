@@ -351,7 +351,7 @@ exports.getAllLaporan = async (req, res) => {
       detail_kegiatan: r.detail_kegiatan,
       tanggal_laporan: r.tanggal_laporan,
       nama_file: r.nama_file,
-      img: r.img ? Buffer.from(r.img).toString('base64') : null,
+      img_base64: r.img ? Buffer.from(r.img).toString('base64') : null,
       kegiatan: {
         id: r.kegiatan_id,
         judul: r.judul_kegiatan,
@@ -760,5 +760,159 @@ exports.addRiwayatPasien = async (req, res) => {
     res.status(201).json({ message: 'Riwayat pasien berhasil ditambahkan' })
   } catch (error) {
     res.status(500).json({ error: error.message })
+  }
+}
+// ADMIN: ADD LOKASI
+exports.addLokasi = async (req, res) => {
+  try {
+    const { nama_lokasi, latitude, longitude, is_puskesmas } = req.body
+
+    if (!nama_lokasi) {
+      return res.status(400).json({ message: 'Nama lokasi wajib diisi' })
+    }
+
+    await db.query(
+      `INSERT INTO lokasi (nama_lokasi, latitude, longitude, is_puskesmas)
+       VALUES (?, ?, ?, ?)`,
+      [
+        nama_lokasi,
+        latitude || null,
+        longitude || null,
+        is_puskesmas ? 1 : 0
+      ]
+    )
+
+    res.status(201).json({ message: 'Lokasi berhasil ditambahkan' })
+  } catch (err) {
+    console.error('addLokasi:', err)
+    res.status(500).json({ message: 'Gagal menambahkan lokasi' })
+  }
+}
+// ADMIN: UPDATE LOKASI
+exports.updateLokasi = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { nama_lokasi, latitude, longitude, is_puskesmas } = req.body
+
+    if (!nama_lokasi) {
+      return res.status(400).json({ message: 'Nama lokasi wajib diisi' })
+    }
+
+    const [result] = await db.query(
+      `UPDATE lokasi SET
+        nama_lokasi = ?,
+        latitude = ?,
+        longitude = ?,
+        is_puskesmas = ?
+       WHERE id = ?`,
+      [
+        nama_lokasi,
+        latitude || null,
+        longitude || null,
+        is_puskesmas ? 1 : 0,
+        id
+      ]
+    )
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Lokasi tidak ditemukan' })
+    }
+
+    res.json({ message: 'Lokasi berhasil diperbarui' })
+  } catch (err) {
+    console.error('updateLokasi:', err)
+    res.status(500).json({ message: 'Gagal memperbarui lokasi' })
+  }
+}
+// ADMIN: DELETE LOKASI
+exports.deleteLokasi = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const [result] = await db.query(
+      'DELETE FROM lokasi WHERE id = ?',
+      [id]
+    )
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Lokasi tidak ditemukan' })
+    }
+
+    res.json({ message: 'Lokasi berhasil dihapus' })
+  } catch (err) {
+    console.error('deleteLokasi:', err)
+    res.status(500).json({ message: 'Gagal menghapus lokasi' })
+  }
+}
+// ===================== POLI (ADMIN) =====================
+
+// ADD POLI
+// ADMIN: ADD POLI
+exports.addPoli = async (req, res) => {
+  try {
+    const { nama_poli, deskripsi, icon, color } = req.body
+
+    if (!nama_poli || !icon || !color) {
+      return res.status(400).json({ message: 'Data wajib belum lengkap' })
+    }
+
+    await db.query(
+      `INSERT INTO poli (nama_poli, deskripsi, icon, color)
+       VALUES (?, ?, ?, ?)`,
+      [nama_poli, deskripsi || null, icon, color]
+    )
+
+    res.status(201).json({ message: 'Poli berhasil ditambahkan' })
+  } catch (err) {
+    console.error('addPoli:', err)
+    res.status(500).json({ message: 'Gagal menambahkan poli' })
+  }
+}
+
+// ADMIN: UPDATE POLI
+exports.updatePoli = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { nama_poli, deskripsi, icon, color } = req.body
+
+    const [result] = await db.query(
+      `UPDATE poli SET
+        nama_poli = ?,
+        deskripsi = ?,
+        icon = ?,
+        color = ?
+       WHERE id = ?`,
+      [nama_poli, deskripsi || null, icon, color, id]
+    )
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Poli tidak ditemukan' })
+    }
+
+    res.json({ message: 'Poli berhasil diperbarui' })
+  } catch (err) {
+    console.error('updatePoli:', err)
+    res.status(500).json({ message: 'Gagal update poli' })
+  }
+}
+
+// ADMIN: DELETE POLI
+exports.deletePoli = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const [result] = await db.query(
+      'DELETE FROM poli WHERE id = ?',
+      [id]
+    )
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Poli tidak ditemukan' })
+    }
+
+    res.json({ message: 'Poli berhasil dihapus' })
+  } catch (err) {
+    console.error('deletePoli:', err)
+    res.status(500).json({ message: 'Gagal menghapus poli' })
   }
 }

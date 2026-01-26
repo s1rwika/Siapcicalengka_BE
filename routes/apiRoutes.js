@@ -421,5 +421,58 @@ router.get(
 
 // Di bagian PUBLIC ROUTES
 router.get('/test/reviews', publicController.testReviewConnection);
+// =========================================================================
+// ADMIN ROUTES - MANAJEMEN LOKASI
+// =========================================================================
+
+// ADD LOKASI
+router.post(
+  '/admin/lokasi',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.addLokasi
+)
+
+// UPDATE LOKASI
+router.put(
+  '/admin/lokasi/:id',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.updateLokasi
+)
+
+// DELETE LOKASI
+router.delete(
+  '/admin/lokasi/:id',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.deleteLokasi
+)
+// =========================================================================
+// ADMIN ROUTES - MANAJEMEN POLI
+// =========================================================================
+
+// ADMIN POLI
+router.post(
+  '/admin/poli',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.addPoli
+)
+
+router.put(
+  '/admin/poli/:id',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.updatePoli
+)
+
+router.delete(
+  '/admin/poli/:id',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.deletePoli
+)
+
 
 module.exports = router

@@ -261,7 +261,6 @@ exports.getUserDokter = async (req, res) => {
         u.full_name
       FROM users u
       WHERE u.role = 'dokter'
-        AND u.id NOT IN (SELECT user_id FROM dokter)
       ORDER BY u.full_name ASC
     `)
 
@@ -271,6 +270,7 @@ exports.getUserDokter = async (req, res) => {
     res.status(500).json({ message: 'Gagal mengambil user dokter' })
   }
 }
+
 
 // ADMIN: GET ALL DOKTER
 exports.getAllDokterAdmin = async (req, res) => {

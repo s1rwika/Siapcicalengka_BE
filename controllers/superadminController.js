@@ -71,32 +71,60 @@ exports.approveRole = async (req, res) => {
  * Route: PUT /api/superadmin/approve-kegiatan/:id
  */
 exports.approveKegiatan = async (req, res) => {
-    const { id } = req.params; // ID Kegiatan
-    const { status, catatan } = req.body; // status: 'disetujui' atau 'ditolak'
-    const superadminId = req.user.id; // ID Superadmin yang sedang login
+    const { id } = req.params;
+    
+    // Debug: lihat apa yang diterima
+    console.log('Body received:', req.body);
+    console.log('Params:', req.params);
+    
+    // Gunakan default values jika body kosong
+    const body = req.body || {};
+    const status = body.status || 'disetujui'; // Default ke 'disetujui'
+    const catatan = body.catatan || '';
+    const superadminId = req.user.id;
 
     try {
-        // Update status di tabel kegiatan
-        const [updateResult] = await db.query('UPDATE kegiatan SET status = ? WHERE id = ?', [status, id]);
-        
-        if (updateResult.affectedRows === 0) {
-            return res.status(404).json({ message: 'Kegiatan tidak ditemukan' });
+        // Validasi status
+        if (!['disetujui', 'ditolak'].includes(status)) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Status harus "disetujui" atau "ditolak"' 
+            });
         }
 
-        // Catat log approval
-        // Kita bungkus try-catch kecil agar jika log gagal, response utama tetap sukses
+        // Update status di tabel kegiatan
+        const [updateResult] = await db.query(
+            'UPDATE kegiatan SET status = ? WHERE id = ?', 
+            [status, id]
+        );
+        
+        if (updateResult.affectedRows === 0) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Kegiatan tidak ditemukan' 
+            });
+        }
+
+        // Catat log approval (optional)
         try {
             await db.query(
                 'INSERT INTO kegiatan_approval (kegiatan_id, user_id, status, catatan) VALUES (?, ?, ?, ?)',
                 [id, superadminId, status, catatan]
             );
         } catch (logError) {
-            console.log("Gagal mencatat log approval:", logError.message);
+            console.log("Note: Gagal mencatat log approval:", logError.message);
         }
 
-        res.json({ message: `Kegiatan berhasil diubah statusnya menjadi ${status}` });
+        res.json({ 
+            success: true,
+            message: `Kegiatan berhasil ${status}` 
+        });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error("Error approveKegiatan:", error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
     }
 };
 

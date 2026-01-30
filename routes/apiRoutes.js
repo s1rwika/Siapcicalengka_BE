@@ -466,11 +466,11 @@ router.put('/superadmin/kegiatan/:id/approve',
   superadminController.approveKegiatan
 )
 
-router.put('/superadmin/kegiatan/:id/:status', 
-  verifyToken,
-  authorize(['superadmin']),
-  superadminController.updateStatusKegiatan
-)
+// router.put('/superadmin/kegiatan/:id/:status', 
+//   verifyToken,
+//   authorize(['superadmin']),
+//   superadminController.updateStatusKegiatan
+// )
 
 // 4. LAPORAN APPROVAL
 router.put('/superadmin/laporan/:id/approve', 

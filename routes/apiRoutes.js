@@ -4,7 +4,7 @@ const multer = require('multer')
 const upload = multer()
 
 // ================= MIDDLEWARE =================
-const { verifyToken, authorize, verifyAdmin } = require('../middleware/auth') // Tambahkan verifyAdmin jika dibuat
+const { verifyToken, authorize } = require('../middleware/auth')
 
 // ================= CONTROLLERS =================
 const authController = require('../controllers/authController')
@@ -18,7 +18,8 @@ const jadwalController = require('../controllers/jadwalController')
 const lokasiController = require('../controllers/lokasiController')
 const riwayatPenyakitController = require('../controllers/riwayatPenyakitController')
 const absensiController = require('../controllers/absensiController')
-const petaController = require('../controllers/petaController');
+const petaController = require('../controllers/petaController')
+const izinController = require('../controllers/izinController')
 
 // =========================================================================
 // 1. AUTHENTICATION
@@ -41,19 +42,15 @@ router.get('/dokter/poli/:poliId', dokterController.getDokterByPoli)
 router.get('/jadwal/poli/:poliId', jadwalController.getJadwalByPoli)
 
 // KEGIATAN BERDASARKAN LOKASI
-// router.get('/peta/kegiatan/:lokasiId/akan-datang', adminController.getAkanDatangByLokasi)
-// router.get('/peta/kegiatan/:lokasiId/selesai', adminController.getSelesaiByLokasi)
-
 router.get('/peta/kegiatan/:lokasiId/akan-datang', petaController.getKegiatanAkanDatang)
 router.get('/peta/kegiatan/:lokasiId/selesai', petaController.getKegiatanSelesai)
 
-// REVIEWS (PUBLIC ACCESS) - TAMBAHAN BARU
+// REVIEWS (PUBLIC ACCESS)
 router.get('/laporan/:laporanId/reviews', publicController.getReviewsByLaporanPublic)
 
-// TEST/DEBUG ENDPOINTS (optional, bisa dihapus di production)
+// TEST/DEBUG ENDPOINTS
 router.get('/test/reviews', publicController.testReviewConnection)
 router.get('/debug/reviews-info', publicController.getReviewTableInfo)
-
 
 // =========================================================================
 // 3. USER ROUTES
@@ -106,7 +103,6 @@ router.post(
   absensiController.absen
 )
 
-router.post("/absen", absensiController.absen);
 // =========================================================================
 // 5. ADMIN ROUTES - MANAJEMEN KEGIATAN
 // =========================================================================
@@ -246,7 +242,23 @@ router.post(
   '/admin/lokasi',
   verifyToken,
   authorize(['admin', 'superadmin']),
-  lokasiController.addLokasi
+  adminController.addLokasi
+)
+
+// UPDATE LOKASI
+router.put(
+  '/admin/lokasi/:id',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.updateLokasi
+)
+
+// DELETE LOKASI
+router.delete(
+  '/admin/lokasi/:id',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  adminController.deleteLokasi
 )
 
 // =========================================================================
@@ -284,7 +296,7 @@ router.delete(
   riwayatPenyakitController.remove
 )
 
-// ALTERNATIVE ROUTES FOR RIWAYAT PASIEN (jika masih menggunakan adminController)
+// ALTERNATIVE ROUTES FOR RIWAYAT PASIEN
 router.get(
   '/admin/riwayat-pasien-old',
   verifyToken,
@@ -302,7 +314,7 @@ router.post(
 // =========================================================================
 // 10. REVIEW / KOMENTAR LAPORAN
 // =========================================================================
-// GET REVIEWS FOR LAPORAN (AUTHENTICATED - dengan info user review)
+// GET REVIEWS FOR LAPORAN (AUTHENTICATED)
 router.get(
   '/laporan/:laporanId/reviews/auth',
   verifyToken,
@@ -345,113 +357,8 @@ router.get(
 )
 
 // =========================================================================
-// 12. SUPERADMIN ROUTES
+// 12. ADMIN ROUTES - MANAJEMEN POLI
 // =========================================================================
-// APPROVE KEGIATAN
-router.put(
-  '/superadmin/approve-kegiatan/:id',
-  verifyToken,
-  authorize(['superadmin']),
-  superadminController.approveKegiatan
-)
-
-// GET ROLE APPROVALS
-router.get(
-  '/superadmin/role-approvals',
-  verifyToken,
-  authorize(['superadmin']),
-  superadminController.getRoleApprovals
-)
-
-// APPROVE ROLE
-router.put(
-  '/superadmin/approve-role/:id',
-  verifyToken,
-  authorize(['superadmin']),
-  superadminController.approveRole
-)
-// approval kegiatan
-router.get(
-  '/superadmin/kegiatan',
-  verifyToken,
-  superadminController.getApprovalKegiatan
-)
-
-router.put(
-  '/superadmin/kegiatan/:id/:status',
-  verifyToken,
-  superadminController.updateStatusKegiatan
-)
-
-// ===============================
-// SUPERADMIN - APPROVAL LAPORAN
-// ===============================
-router.put(
-  '/superadmin/laporan/:id/approve',
-  superadminController.approveLaporan
-)
-
-router.put(
-  '/superadmin/laporan/:id/reject',
-  superadminController.rejectLaporan
-)
-
-router.get('/superadmin/izin', superadminController.getAllIzin)
-router.put('/superadmin/izin/:id/approve', superadminController.approveIzin)
-router.put('/superadmin/izin/:id/reject', superadminController.rejectIzin)
-
-// =========================================================================
-// 13. STATISTIK PENYAKIT
-// =========================================================================
-// GET STATISTIK PENYAKIT
-router.get(
-  '/statistik-penyakit',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  riwayatPenyakitController.getStatistikPenyakit
-)
-
-// GET DISTRIBUSI LOKASI
-router.get(
-  '/distribusi-lokasi',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  riwayatPenyakitController.getDistribusiLokasi
-)
-
-// Di bagian PUBLIC ROUTES
-router.get('/test/reviews', publicController.testReviewConnection);
-// =========================================================================
-// ADMIN ROUTES - MANAJEMEN LOKASI
-// =========================================================================
-
-// ADD LOKASI
-router.post(
-  '/admin/lokasi',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  adminController.addLokasi
-)
-
-// UPDATE LOKASI
-router.put(
-  '/admin/lokasi/:id',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  adminController.updateLokasi
-)
-
-// DELETE LOKASI
-router.delete(
-  '/admin/lokasi/:id',
-  verifyToken,
-  authorize(['admin', 'superadmin']),
-  adminController.deleteLokasi
-)
-// =========================================================================
-// ADMIN ROUTES - MANAJEMEN POLI
-// =========================================================================
-
 // ADMIN POLI
 router.post(
   '/admin/poli',
@@ -474,5 +381,133 @@ router.delete(
   adminController.deletePoli
 )
 
+router.get('/jenis-kegiatan', adminController.getJenisKegiatan)
+
+// =========================================================================
+// 13. STATISTIK PENYAKIT
+// =========================================================================
+// GET STATISTIK PENYAKIT
+router.get(
+  '/statistik-penyakit',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  riwayatPenyakitController.getStatistikPenyakit
+)
+
+// GET DISTRIBUSI LOKASI
+router.get(
+  '/distribusi-lokasi',
+  verifyToken,
+  authorize(['admin', 'superadmin']),
+  riwayatPenyakitController.getDistribusiLokasi
+)
+
+// =========================================================================
+// 14. SUPERADMIN ROUTES - MANAJEMEN USER
+// =========================================================================
+// PERHATIAN: Semua route di bawah ini menggunakan PREFIX '/superadmin/', BUKAN '/api/superadmin/'
+
+// 1. MANAJEMEN USERS (untuk halaman KelolaKaryawanPage)
+router.get('/superadmin/users', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.getAllUsers
+)
+
+router.post('/superadmin/users', 
+  verifyToken,
+  authorize(['superadmin']),
+  upload.single('img'),
+  superadminController.createUser
+)
+
+router.put('/superadmin/users/:id', 
+  verifyToken,
+  authorize(['superadmin']),
+  upload.single('img'),
+  superadminController.updateUser
+)
+
+router.delete('/superadmin/users/:id', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.deleteUser
+)
+
+router.post('/superadmin/users/:id/reset-password', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.resetPassword
+)
+
+// 2. APPROVAL SYSTEM (untuk halaman Approval)
+router.get('/superadmin/role-approvals', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.getRoleApprovals
+)
+
+router.put('/superadmin/approve-role/:id', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.approveRole
+)
+
+// 3. KEGIATAN APPROVAL
+router.get('/superadmin/kegiatan', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.getApprovalKegiatan
+)
+
+router.put('/superadmin/kegiatan/:id/approve', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.approveKegiatan
+)
+
+router.put('/superadmin/kegiatan/:id/:status', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.updateStatusKegiatan
+)
+
+// 4. LAPORAN APPROVAL
+router.put('/superadmin/laporan/:id/approve', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.approveLaporan
+)
+
+router.put('/superadmin/laporan/:id/reject', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.rejectLaporan
+)
+
+// 5. IZIN APPROVAL
+router.get('/superadmin/izin', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.getAllIzin
+)
+
+router.put('/superadmin/izin/:id/approve', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.approveIzin
+)
+
+router.put('/superadmin/izin/:id/reject', 
+  verifyToken,
+  authorize(['superadmin']),
+  superadminController.rejectIzin
+)
+
+// IZIN ROUTES dengan prefix /api
+router.post('/izin', verifyToken, izinController.ajukanIzin); // TAMBAHKAN verifyToken
+router.get('/izin/riwayat/:userId', verifyToken, izinController.getRiwayatIzin);
+router.get('/izin/all', verifyToken, authorize(['superadmin']), izinController.getAllIzin);
+router.get('/izin/approve/:id', verifyToken, authorize(['superadmin']), izinController.approveIzin);
 
 module.exports = router

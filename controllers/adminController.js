@@ -298,27 +298,146 @@ exports.getAllLokasi = async (req, res) => {
    ===================================================== */
 
 // CREATE LAPORAN
+// CREATE LAPORAN
 exports.createLaporan = async (req, res) => {
   try {
-    const { kegiatan_id, judul_laporan, detail_kegiatan, nama_file } = req.body
+    console.log('=== CREATE LAPORAN REQUEST ===');
+    console.log('Body fields:', req.body);
+    console.log('File:', req.file ? req.file.originalname : 'No file');
+    console.log('File buffer size:', req.file ? req.file.buffer.length : 'No file');
 
-    if (!kegiatan_id || !judul_laporan || !detail_kegiatan) {
-      return res.status(400).json({ message: 'Data wajib belum lengkap' })
+    const { kegiatan_id, judul_laporan, detail_kegiatan } = req.body;
+
+    // Validasi required fields
+    if (!kegiatan_id) {
+      return res.status(400).json({ 
+        message: 'ID kegiatan wajib diisi' 
+      });
     }
 
-    const img = req.file ? req.file.buffer : null
-    const file_name = req.file ? req.file.originalname : nama_file || null
+    if (!judul_laporan || judul_laporan.trim() === '') {
+      return res.status(400).json({ 
+        message: 'Judul laporan wajib diisi' 
+      });
+    }
 
-    await db.query(`
-      INSERT INTO laporan
-      (kegiatan_id, nama_file, judul_laporan, detail_kegiatan, img)
-      VALUES (?, ?, ?, ?, ?)
-    `, [kegiatan_id, file_name, judul_laporan, detail_kegiatan, img])
+    if (!detail_kegiatan || detail_kegiatan.trim() === '') {
+      return res.status(400).json({ 
+        message: 'Detail kegiatan wajib diisi' 
+      });
+    }
 
-    res.status(201).json({ message: 'Laporan berhasil ditambahkan' })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ message: 'Gagal menambah laporan' })
+    // Validasi panjang judul (sesuai database: varchar(60))
+    if (judul_laporan.length > 60) {
+      return res.status(400).json({ 
+        message: 'Judul laporan maksimal 60 karakter' 
+      });
+    }
+
+    // Validasi panjang detail (sesuai database: varchar(60))
+    if (detail_kegiatan.length > 60) {
+      return res.status(400).json({ 
+        message: 'Detail kegiatan maksimal 60 karakter' 
+      });
+    }
+
+    // Cek apakah kegiatan ada di database
+    const [kegiatanCheck] = await db.query(
+      'SELECT id FROM kegiatan WHERE id = ?',
+      [kegiatan_id.trim()]
+    );
+
+    if (kegiatanCheck.length === 0) {
+      return res.status(404).json({ 
+        message: 'Kegiatan tidak ditemukan' 
+      });
+    }
+
+    // Cek apakah sudah ada laporan untuk kegiatan ini
+    const [existingLaporan] = await db.query(
+      'SELECT id FROM laporan WHERE kegiatan_id = ?',
+      [kegiatan_id.trim()]
+    );
+
+    if (existingLaporan.length > 0 && !req.params.id) { // Hanya untuk create baru
+      return res.status(409).json({ 
+        message: 'Kegiatan ini sudah memiliki laporan' 
+      });
+    }
+
+    // Handle file upload
+    let img = null;
+    let file_name = null;
+
+    if (req.file) {
+      // Validasi tipe file (hanya gambar)
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'];
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({ 
+          message: 'File harus berupa gambar (JPEG, PNG, GIF)' 
+        });
+      }
+
+      // Validasi ukuran file (max 5MB)
+      if (req.file.size > 5 * 1024 * 1024) {
+        return res.status(400).json({ 
+          message: 'Ukuran file maksimal 5MB' 
+        });
+      }
+
+      img = req.file.buffer;
+      file_name = req.file.originalname;
+      
+      // Validasi panjang nama file
+      if (file_name.length > 60) {
+        file_name = file_name.substring(0, 60);
+      }
+    }
+
+    // Simpan ke database
+    const [result] = await db.query(
+      `INSERT INTO laporan 
+      (kegiatan_id, nama_file, judul_laporan, detail_kegiatan, img, status)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        kegiatan_id.trim(),
+        file_name || judul_laporan.substring(0, 60), // Default nama file
+        judul_laporan.trim(),
+        detail_kegiatan.trim(),
+        img,
+        'menunggu' // Status default
+      ]
+    );
+
+    console.log('Insert result:', result);
+
+    res.status(201).json({ 
+      success: true,
+      message: 'Laporan berhasil ditambahkan',
+      laporan_id: result.insertId
+    });
+
+  } catch (error) {
+    console.error('Error createLaporan:', error);
+    console.error('Error code:', error.code);
+    console.error('Error sqlMessage:', error.sqlMessage);
+    
+    if (error.code === 'ER_DATA_TOO_LONG') {
+      return res.status(400).json({ 
+        message: 'Data terlalu panjang. Pastikan judul dan detail maksimal 60 karakter' 
+      });
+    }
+    
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({ 
+        message: 'Kegiatan tidak ditemukan' 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Gagal menambah laporan',
+      error: error.message
+    });
   }
 }
 
@@ -332,6 +451,7 @@ exports.getAllLaporan = async (req, res) => {
         lp.detail_kegiatan,
         lp.tanggal AS tanggal_laporan,
         lp.nama_file,
+        lp.status,
         lp.img,
         k.id AS kegiatan_id,
         k.judul AS judul_kegiatan,
@@ -345,11 +465,12 @@ exports.getAllLaporan = async (req, res) => {
       ORDER BY lp.tanggal DESC
     `)
 
-    const formatted = rows.map(r => ({
+      const formatted = rows.map(r => ({
       laporan_id: r.laporan_id,
       judul_laporan: r.judul_laporan,
       detail_kegiatan: r.detail_kegiatan,
       tanggal_laporan: r.tanggal_laporan,
+      status: r.status, // ⬅️ INI YANG KURANG
       nama_file: r.nama_file,
       img_base64: r.img ? Buffer.from(r.img).toString('base64') : null,
       kegiatan: {
@@ -846,20 +967,21 @@ exports.deleteLokasi = async (req, res) => {
 }
 // ===================== POLI (ADMIN) =====================
 
-// ADD POLI
 // ADMIN: ADD POLI
 exports.addPoli = async (req, res) => {
   try {
-    const { nama_poli, deskripsi, icon, color } = req.body
+    const { nama_poli, deskripsi, icon } = req.body
 
-    if (!nama_poli || !icon || !color) {
-      return res.status(400).json({ message: 'Data wajib belum lengkap' })
+    if (!nama_poli || !icon) {
+      return res.status(400).json({
+        message: 'Nama poli dan icon wajib diisi'
+      })
     }
 
     await db.query(
-      `INSERT INTO poli (nama_poli, deskripsi, icon, color)
-       VALUES (?, ?, ?, ?)`,
-      [nama_poli, deskripsi || null, icon, color]
+      `INSERT INTO poli (nama_poli, deskripsi, icon)
+       VALUES (?, ?, ?)`,
+      [nama_poli, deskripsi || null, icon]
     )
 
     res.status(201).json({ message: 'Poli berhasil ditambahkan' })
@@ -869,20 +991,24 @@ exports.addPoli = async (req, res) => {
   }
 }
 
+
 // ADMIN: UPDATE POLI
 exports.updatePoli = async (req, res) => {
   try {
     const { id } = req.params
-    const { nama_poli, deskripsi, icon, color } = req.body
+    const { nama_poli, deskripsi, icon } = req.body
+
+    if (!nama_poli || !icon) {
+      return res.status(400).json({
+        message: 'Nama poli dan icon wajib diisi'
+      })
+    }
 
     const [result] = await db.query(
-      `UPDATE poli SET
-        nama_poli = ?,
-        deskripsi = ?,
-        icon = ?,
-        color = ?
+      `UPDATE poli 
+       SET nama_poli = ?, deskripsi = ?, icon = ?
        WHERE id = ?`,
-      [nama_poli, deskripsi || null, icon, color, id]
+      [nama_poli, deskripsi || null, icon, id]
     )
 
     if (result.affectedRows === 0) {
@@ -895,6 +1021,7 @@ exports.updatePoli = async (req, res) => {
     res.status(500).json({ message: 'Gagal update poli' })
   }
 }
+
 
 // ADMIN: DELETE POLI
 exports.deletePoli = async (req, res) => {
@@ -914,5 +1041,21 @@ exports.deletePoli = async (req, res) => {
   } catch (err) {
     console.error('deletePoli:', err)
     res.status(500).json({ message: 'Gagal menghapus poli' })
+  }
+}
+
+// ===================== GET JENIS KEGIATAN =====================
+exports.getJenisKegiatan = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, jenis_kegiatan, kode FROM jenis_kegiatan ORDER BY id ASC'
+    )
+
+    res.json(rows)
+  } catch (error) {
+    console.error('Error getJenisKegiatan:', error)
+    res.status(500).json({
+      message: 'Gagal mengambil data jenis kegiatan'
+    })
   }
 }

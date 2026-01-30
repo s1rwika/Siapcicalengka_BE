@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const bcrypt = require('bcrypt')
 
 /**
  * 1. MELIHAT DAFTAR PERMINTAAN ROLE (Pending)
@@ -303,5 +304,222 @@ exports.rejectIzin = async (req, res) => {
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: 'Gagal reject izin' })
+  }
+}
+
+
+exports.createUser = async (req, res) => {
+  try {
+    const { username, password, full_name, role } = req.body
+    const img = req.file ? req.file.buffer : null
+
+    // Validasi
+    if (!username || !password || !full_name || !role) {
+      return res.status(400).json({ 
+        message: 'Semua field wajib diisi' 
+      })
+    }
+
+    // Cek apakah username sudah ada
+    const [existingUser] = await db.query(
+      'SELECT id FROM users WHERE username = ?',
+      [username]
+    )
+
+    if (existingUser.length > 0) {
+      return res.status(400).json({ 
+        message: 'Username sudah digunakan' 
+      })
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    await db.query(
+      `INSERT INTO users (username, password, full_name, role, img)
+       VALUES (?, ?, ?, ?, ?)`,
+      [username, hashedPassword, full_name, role, img]
+    )
+
+    res.status(201).json({ 
+      success: true,
+      message: 'User berhasil ditambahkan' 
+    })
+  } catch (error) {
+    console.error('Error createUser:', error)
+    res.status(500).json({ 
+      message: 'Gagal menambahkan user',
+      error: error.message 
+    })
+  }
+}
+
+// UPDATE USER - PERBAIKI
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { username, password, full_name, role } = req.body
+    const img = req.file ? req.file.buffer : null
+
+    // Cek user是否存在
+    const [userCheck] = await db.query(
+      'SELECT id FROM users WHERE id = ?',
+      [id]
+    )
+
+    if (userCheck.length === 0) {
+      return res.status(404).json({ 
+        message: 'User tidak ditemukan' 
+      })
+    }
+
+    let updateQuery = 'UPDATE users SET username = ?, full_name = ?, role = ?'
+    let queryParams = [username, full_name, role]
+
+    // Jika ada password baru
+    if (password && password.trim() !== '') {
+      const hashedPassword = await bcrypt.hash(password, 10)
+      updateQuery += ', password = ?'
+      queryParams.push(hashedPassword)
+    }
+
+    // Jika ada gambar baru
+    if (img) {
+      updateQuery += ', img = ?'
+      queryParams.push(img)
+    }
+
+    updateQuery += ' WHERE id = ?'
+    queryParams.push(id)
+
+    await db.query(updateQuery, queryParams)
+
+    res.json({ 
+      success: true,
+      message: 'User berhasil diupdate' 
+    })
+  } catch (error) {
+    console.error('Error updateUser:', error)
+    res.status(500).json({ 
+      message: 'Gagal mengupdate user',
+      error: error.message 
+    })
+  }
+}
+
+// DELETE USER - PERBAIKI
+exports.deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Cek apakah user ada
+    const [userCheck] = await db.query(
+      'SELECT role FROM users WHERE id = ?',
+      [id]
+    )
+
+    if (userCheck.length === 0) {
+      return res.status(404).json({ 
+        message: 'User tidak ditemukan' 
+      })
+    }
+
+    // Cegah penghapusan superadmin
+    if (userCheck[0].role === 'superadmin') {
+      return res.status(403).json({ 
+        message: 'Tidak dapat menghapus akun superadmin' 
+      })
+    }
+
+    await db.query('DELETE FROM users WHERE id = ?', [id])
+
+    res.json({ 
+      success: true,
+      message: 'User berhasil dihapus' 
+    })
+  } catch (error) {
+    console.error('Error deleteUser:', error)
+    res.status(500).json({ 
+      message: 'Gagal menghapus user',
+      error: error.message 
+    })
+  }
+}
+
+// RESET PASSWORD - PERBAIKI
+exports.resetPassword = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { new_password } = req.body
+
+    if (!new_password || new_password.length < 6) {
+      return res.status(400).json({ 
+        message: 'Password baru minimal 6 karakter' 
+      })
+    }
+
+    // Cek apakah user ada
+    const [userCheck] = await db.query(
+      'SELECT id FROM users WHERE id = ?',
+      [id]
+    )
+
+    if (userCheck.length === 0) {
+      return res.status(404).json({ 
+        message: 'User tidak ditemukan' 
+      })
+    }
+
+    // Hash password baru
+    const hashedPassword = await bcrypt.hash(new_password, 10)
+    
+    await db.query(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [hashedPassword, id]
+    )
+
+    res.json({ 
+      success: true,
+      message: 'Password berhasil direset' 
+    })
+  } catch (error) {
+    console.error('Error resetPassword:', error)
+    res.status(500).json({ 
+      message: 'Gagal reset password',
+      error: error.message 
+    })
+  }
+}
+
+// GET ALL USERS (untuk superadmin) - TAMBAHKAN img base64 conversion
+exports.getAllUsers = async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        id,
+        username,
+        full_name,
+        role,
+        created_at,
+        img
+      FROM users
+      ORDER BY 
+        FIELD(role, 'superadmin', 'admin', 'dokter', 'user'),
+        created_at DESC
+    `)
+    
+    // Convert img blob to base64 untuk frontend
+    const usersWithImg = rows.map(user => ({
+      ...user,
+      img: user.img ? Buffer.from(user.img).toString('base64') : null
+    }))
+    
+    res.json(usersWithImg)
+  } catch (error) {
+    console.error('Error getAllUsers:', error)
+    res.status(500).json({ 
+      message: 'Gagal mengambil data users',
+      error: error.message 
+    })
   }
 }

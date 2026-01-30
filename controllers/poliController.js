@@ -3,19 +3,18 @@ const db = require('../config/db')
 exports.getAllPoli = async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT 
+      SELECT
         id,
-        nama_poli AS name,
-        deskripsi AS description,
-        icon,
-        color
+        nama_poli,
+        deskripsi,
+        icon
       FROM poli
-      ORDER BY id ASC
+      ORDER BY nama_poli ASC
     `)
 
     res.json(rows)
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({ message: 'Gagal mengambil data poli' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
   }
 }
+
